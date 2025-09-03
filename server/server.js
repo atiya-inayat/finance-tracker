@@ -7,6 +7,10 @@ const app = express();
 // connect to MongoDB
 connectDB();
 
+// app.use(cors());
+// parse json
+app.use(express.json());
+
 // routes
 app.use("/api/auth", authRoutes);
 
