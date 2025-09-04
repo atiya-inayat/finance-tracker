@@ -15,7 +15,7 @@ app.use(express.json());
 
 // routes
 app.use("/api/auth", authRoutes);
-app.use("/api/transaction", transactionRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
