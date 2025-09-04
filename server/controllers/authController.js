@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 export const registerUser = async (req, res) => {
   try {
@@ -22,7 +23,8 @@ export const registerUser = async (req, res) => {
       password: hashedPassword,
     });
 
-    res.status(201).json(newUser);
+    const { password, ...userData } = newUser._doc;
+    res.status(201).json(userData);
   } catch (error) {
     console.error("❌ Error registering user:", error);
     res.status(500).send("Error saving user");
@@ -45,8 +47,16 @@ export const loginUser = async (req, res) => {
     if (!isMatch) {
       return res.status(400).send("Invalid email or password");
     }
+
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+      expiresIn: "1h", // token valid for one hour
+    });
+
     // if matched, login is successful
-    res.status(200).json({ message: "Login Successful", user });
+    const { password, ...userData } = user._doc;
+    res
+      .status(200)
+      .json({ message: "Login Successful", user: userData, token });
   } catch (error) {
     console.error("❌ Error Loging user:", error);
     res.status(500).send("Error logging user");
