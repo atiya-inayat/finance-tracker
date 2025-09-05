@@ -2,6 +2,7 @@ import express from "express";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
+import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
 const app = express();
@@ -9,8 +10,15 @@ const app = express();
 // connect to MongoDB
 connectDB();
 
-// app.use(cors());
-// parse json
+app.use(
+  cors({
+    origin: "http://localhost:3001", // frontend origin
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
 app.use(express.json());
 
 // routes
