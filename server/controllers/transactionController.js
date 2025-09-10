@@ -28,13 +28,11 @@ export const createTransaction = async (req, res, next) => {
 
     res.status(201).json({ success: true, transaction });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error creating transaction",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error creating transaction",
+      error: error.message,
+    });
   }
 };
 
@@ -46,13 +44,11 @@ export const getTransactions = async (req, res, next) => {
     });
     res.json({ success: true, transactions });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error fetching transactions",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching transactions",
+      error: error.message,
+    });
   }
 };
 
@@ -72,13 +68,11 @@ export const getTransactionById = async (req, res, next) => {
 
     res.json({ success: true, transaction });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error fetching transaction",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error fetching transaction",
+      error: error.message,
+    });
   }
 };
 
@@ -99,13 +93,11 @@ export const updateTransaction = async (req, res, next) => {
 
     res.json({ success: true, transaction });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error updating transaction",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error updating transaction",
+      error: error.message,
+    });
   }
 };
 
@@ -125,39 +117,51 @@ export const deleteTransaction = async (req, res, next) => {
 
     res.json({ success: true, message: "Transaction deleted successfully" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error deleting transaction",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error deleting transaction",
+      error: error.message,
+    });
   }
 };
 
 // Analytics: Income / Expense Summary
-export const getSummary = async (req, res) => {
+export const getDashboardData = async (req, res) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user.id });
+    const result = await Transaction.aggregate([
+      // Step 1: Filter only the current user's transactions
+      { $match: { userId: req.user.id } },
 
-    const income = transactions
-      .filter((t) => t.type === "income")
-      .reduce((acc, t) => acc + t.amount, 0);
+      // Step 2: Group by type (income/expense) and calculate totals
+      {
+        $group: {
+          _id: "$type", // group by "income" or "expense"
+          total: { $sum: "$amount" }, // sum all amounts in each group
+        },
+      },
+    ]);
 
-    const expense = transactions
-      .filter((t) => t.type === "expense")
-      .reduce((acc, t) => acc + t.amount, 0);
+    // Step 3: Extract income and expense from result
+    let income = 0;
+    let expense = 0;
+
+    result.forEach((item) => {
+      if (item._id === "income") income = item.total;
+      if (item._id === "expense") expense = item.total;
+    });
 
     const balance = income - expense;
 
-    res.json({ success: true, summary: { income, expense, balance } });
+    // Step 4: Send response
+    res.json({
+      success: true,
+      dashboard: { income, expense, balance },
+    });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error generating summary",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error generating dashboard data",
+      error: error.message,
+    });
   }
 };
