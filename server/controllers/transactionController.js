@@ -1,4 +1,5 @@
 import Transaction from "../models/Transaction.js";
+import mongoose from "mongoose";
 
 // Create Transaction
 export const createTransaction = async (req, res, next) => {
@@ -126,22 +127,21 @@ export const deleteTransaction = async (req, res, next) => {
 };
 
 // Analytics: Income / Expense Summary
+
 export const getDashboardData = async (req, res) => {
   try {
-    const result = await Transaction.aggregate([
-      // Step 1: Filter only the current user's transactions
-      { $match: { userId: req.user.id } },
+    const userId = new mongoose.Types.ObjectId(req.user.id);
 
-      // Step 2: Group by type (income/expense) and calculate totals
+    const result = await Transaction.aggregate([
+      { $match: { userId } },
       {
         $group: {
-          _id: "$type", // group by "income" or "expense"
-          total: { $sum: "$amount" }, // sum all amounts in each group
+          _id: "$type",
+          total: { $sum: "$amount" },
         },
       },
     ]);
 
-    // Step 3: Extract income and expense from result
     let income = 0;
     let expense = 0;
 
@@ -152,7 +152,6 @@ export const getDashboardData = async (req, res) => {
 
     const balance = income - expense;
 
-    // Step 4: Send response
     res.json({
       success: true,
       dashboard: { income, expense, balance },
