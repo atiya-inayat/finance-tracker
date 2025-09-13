@@ -128,10 +128,12 @@ export const deleteTransaction = async (req, res, next) => {
 
 // Analytics: Income / Expense Summary
 
+// Analytics: Income / Expense Summary + Expenses by Category
 export const getDashboardData = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
 
+    // 1️⃣ Summary (income, expense, balance)
     const result = await Transaction.aggregate([
       { $match: { userId } },
       {
@@ -152,9 +154,29 @@ export const getDashboardData = async (req, res) => {
 
     const balance = income - expense;
 
+    // 2️⃣ Category-wise expense breakdown
+    const categories = await Transaction.aggregate([
+      { $match: { userId, type: "expense" } }, // only expenses
+      {
+        $group: {
+          _id: "$category",
+          amount: { $sum: "$amount" },
+        },
+      },
+      {
+        $project: {
+          category: "$_id",
+          amount: 1,
+          _id: 0,
+        },
+      },
+    ]);
+
+    // 3️⃣ Send response
     res.json({
       success: true,
       dashboard: { income, expense, balance },
+      categories, // 👈 now frontend can use this for charts
     });
   } catch (error) {
     res.status(500).json({
