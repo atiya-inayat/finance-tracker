@@ -132,3 +132,22 @@ export const loginUser = async (req, res) => {
     res.status(500).send("Error logging user");
   }
 };
+
+export const getMe = async (req, res) => {
+  try {
+    // req.user is populated by protect middleware (decoded JWT user id)
+    const user = await User.findById(req.user.id).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({
+      message: "User fetched successfully",
+      user,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching user:", error);
+    res.status(500).send("Error fetching user");
+  }
+};

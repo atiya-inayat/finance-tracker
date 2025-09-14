@@ -15,8 +15,8 @@ export const createCheckoutSession = async (req, res) => {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/pricing`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`, // ✅ FIXED
+      cancel_url: `${process.env.FRONTEND_URL}/pricing`, // ✅ uses correct var
       customer_email: req.user.email, // from authMiddleware
     });
 
@@ -29,6 +29,7 @@ export const createCheckoutSession = async (req, res) => {
 
 // 2️⃣ Handle Stripe Webhook (Stripe → backend)
 export const handleWebhook = async (req, res) => {
+  console.log({ req });
   const sig = req.headers["stripe-signature"];
 
   let event;
