@@ -3,6 +3,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
+import stripeRoutes from "./routes/stripeRoutes.js";
 import cors from "cors";
 import dotenv from "dotenv";
 dotenv.config();
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api", dashboardRoute);
+app.use("/api/stripe", stripeRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");

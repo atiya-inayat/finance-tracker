@@ -18,6 +18,12 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "free",
   },
+  stripeSubscriptionId: {
+    type: String,
+  },
+  stripeCustomerId: {
+    type: String,
+  },
 });
 
 const User = mongoose.model("User", userSchema);
