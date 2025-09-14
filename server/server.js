@@ -4,14 +4,17 @@ import authRoutes from "./routes/authRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
 import stripeRoutes from "./routes/stripeRoutes.js";
+import { handleWebhook } from "./controllers/stripeController.js"; // import webhook controller
 import cors from "cors";
 import dotenv from "dotenv";
+
 dotenv.config();
 const app = express();
 
 // connect to MongoDB
 connectDB();
 
+// cors config
 app.use(
   cors({
     origin: "http://localhost:3001", // frontend origin
@@ -21,6 +24,14 @@ app.use(
   })
 );
 
+// ⚠️ Webhook route must come BEFORE express.json()
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  handleWebhook
+);
+
+// Normal JSON parser for all other routes
 app.use(express.json());
 
 // routes
