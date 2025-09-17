@@ -1,5 +1,6 @@
 import Transaction from "../models/Transaction.js";
 import mongoose from "mongoose";
+import { Parser } from "json2csv";
 
 // Create Transaction
 export const createTransaction = async (req, res, next) => {
@@ -184,5 +185,62 @@ export const getDashboardData = async (req, res) => {
       message: "Error generating dashboard data",
       error: error.message,
     });
+  }
+};
+
+export const getAdvancedAnalytics = async (req, res) => {
+  try {
+    const { groupBy } = req.query; // e.g., category or month
+
+    let groupStage = {};
+
+    if (groupBy === "month") {
+      groupStage = {
+        _id: { $month: "$date" }, // group by month number (1–12)
+        totalAmount: { $sum: "$amount" },
+        count: { $sum: 1 },
+      };
+    } else {
+      // default: group by category
+      groupStage = {
+        _id: "$category",
+        totalAmount: { $sum: "$amount" },
+        count: { $sum: 1 },
+      };
+    }
+
+    const result = await Transaction.aggregate([{ $group: groupStage }]);
+
+    res.json(result);
+  } catch (error) {
+    console.error("Error grouping transactions:", error);
+    res.status(500).json({ message: "Server error", error });
+  }
+};
+
+export const exportTransactions = async (req, res) => {
+  try {
+    // 1. Fetch all transactions for the logged-in user
+    const transactions = await Transaction.find({
+      userId: req.user._id,
+    }).lean();
+
+    if (!transactions || transactions.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No transactions found to export" });
+    }
+
+    // 2. Convert JSON → CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(transactions);
+
+    // 3. Send as downloadable file
+    res.header("Content-Type", "text/csv");
+    res.attachment("transactions.csv");
+    res.send(csv);
+  } catch (error) {
+    console.error("Error exporting transactions:", error);
+    res.status(500).json({ message: "Server error while exporting", error });
   }
 };

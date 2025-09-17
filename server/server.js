@@ -5,6 +5,7 @@ import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
 import stripeRoutes from "./routes/stripeRoutes.js";
 import { handleWebhook } from "./controllers/stripeController.js"; // import webhook controller
+import "./utils/cronJobs.js";
 import cors from "cors";
 import dotenv from "dotenv";
 
