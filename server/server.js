@@ -3,6 +3,7 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 import dashboardRoute from "./routes/dashboardRoute.js";
+import budgetRoutes from "./routes/budgetRoutes.js";
 import stripeRoutes from "./routes/stripeRoutes.js";
 import { handleWebhook } from "./controllers/stripeController.js"; // import webhook controller
 import "./utils/cronJobs.js";
@@ -40,6 +41,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 app.use("/api", dashboardRoute);
 app.use("/api/stripe", stripeRoutes);
+app.use("/api/budgets", budgetRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
