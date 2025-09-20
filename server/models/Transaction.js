@@ -7,10 +7,10 @@ const transactionSchema = new mongoose.Schema({
     enum: ["income", "expense"],
     required: true,
   },
-  title: {
-    type: String,
-    required: true,
-    trim: true,
+  budgetId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Budget",
+    required: false,
   },
   amount: {
     type: Number,
@@ -19,7 +19,6 @@ const transactionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: true,
     enum: [
       "Food",
       "Transport",

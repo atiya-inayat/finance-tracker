@@ -1,35 +1,48 @@
 import Transaction from "../models/Transaction.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
+import Budget from "../models/Budget.js";
 
 // Create Transaction
 export const createTransaction = async (req, res, next) => {
   try {
     const {
       type,
-      title,
       amount,
       category,
       date,
       notes,
       recurring,
       attachments,
+      budgetId, // ✅ add budgetId
     } = req.body;
+
+    // Optional: Check if budgetId exists
+    if (budgetId) {
+      const budget = await Budget.findById(budgetId);
+      if (!budget) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid budgetId provided",
+        });
+      }
+    }
 
     const transaction = await Transaction.create({
       userId: req.user.id,
       type,
-      title,
       amount,
       category,
       date,
       notes,
       recurring,
       attachments,
+      budgetId: budgetId || null, // link budget if provided
     });
 
     res.status(201).json({ success: true, transaction });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Error creating transaction",
@@ -44,6 +57,8 @@ export const getTransactions = async (req, res, next) => {
     const transactions = await Transaction.find({ userId: req.user.id }).sort({
       date: -1,
     });
+
+    console.log({ transactions });
     res.json({ success: true, transactions });
   } catch (error) {
     res.status(500).json({

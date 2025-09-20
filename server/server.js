@@ -20,7 +20,7 @@ connectDB();
 // cors config
 app.use(
   cors({
-    origin: "http://localhost:3001", // frontend origin
+    origin: "http://localhost:3000", // frontend origin
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -49,7 +49,7 @@ app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-const port = 3000;
+const port = process.env.PORT || 3005;
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
 });

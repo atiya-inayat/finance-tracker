@@ -14,7 +14,7 @@ const router = express.Router();
 // Routes
 router.post("/", authMiddleware, createTransaction); // Create
 router.get("/", authMiddleware, getTransactions); // Get all
-router.get("/", authMiddleware, getAdvancedAnalytics); // Get advance transaction
+router.get("/analytics", authMiddleware, getAdvancedAnalytics); // Get advance transaction
 router.get("/:id", authMiddleware, getTransactionById); // Get by ID
 router.put("/:id", authMiddleware, updateTransaction); // Update
 router.delete("/:id", authMiddleware, deleteTransaction); // Delete

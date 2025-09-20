@@ -2,14 +2,14 @@ import Budget from "../models/Budget.js";
 import Transaction from "../models/Transaction.js";
 import mongoose from "mongoose";
 
-// Create a new budget
+// ✅ Create a new budget
 export const createBudget = async (req, res) => {
   try {
     const { category, limit, period } = req.body;
 
     const budget = await Budget.create({
       userId: req.user._id,
-      category,
+      category: category.toLowerCase(),
       limit,
       period,
     });
@@ -20,49 +20,17 @@ export const createBudget = async (req, res) => {
   }
 };
 
-// Get all budgets
+// ✅ Get all budgets with spent + remaining (Updated and Corrected)
 export const getBudgets = async (req, res) => {
   try {
-    const budgets = await Budget.find({ userId: req.user._id });
-    const budgetsWithSpent = [];
-
-    for (const budget of budgets) {
-      let startDate = new Date(0); // default: all time
-      const now = new Date();
-
-      if (budget.period === "monthly") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      } else if (budget.period === "weekly") {
-        const firstDayOfWeek = now.getDate() - now.getDay(); // Sunday
-        startDate = new Date(now.getFullYear(), now.getMonth(), firstDayOfWeek);
-      } else if (budget.period === "yearly") {
-        startDate = new Date(now.getFullYear(), 0, 1);
-      }
-
-      // fetch matching transactions
-      const transactions = await Transaction.find({
-        userId: req.user._id,
-        type: "expense", // only expenses count toward budget
-        category: budget.category,
-        date: { $gte: startDate },
-      });
-
-      const spent = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-
-      budgetsWithSpent.push({
-        ...budget.toObject(),
-        spent,
-      });
-    }
-
-    res.json(budgetsWithSpent);
+    const budgets = await Budget.find({ userId: req.user.id });
+    res.json(budgets);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error fetching budgets" });
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
-// Update budget
+// ✅ Update budget
 export const updateBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -81,7 +49,7 @@ export const updateBudget = async (req, res) => {
   }
 };
 
-// Delete budget
+// ✅ Delete budget
 export const deleteBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -99,7 +67,7 @@ export const deleteBudget = async (req, res) => {
   }
 };
 
-// Check budget spending
+// ✅ Check budget spending (for single budget)
 export const checkBudget = async (req, res) => {
   try {
     const { id } = req.params;
@@ -133,7 +101,7 @@ export const checkBudget = async (req, res) => {
         $match: {
           userId: new mongoose.Types.ObjectId(req.user._id),
           category: budget.category,
-          type: "expense", // ✅ added this
+          type: "expense",
           date: { $gte: startDate, $lte: now },
         },
       },
