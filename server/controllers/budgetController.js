@@ -21,11 +21,219 @@ export const createBudget = async (req, res) => {
 };
 
 // ✅ Get all budgets with spent + remaining (Updated and Corrected)
+// export const getBudgets = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+
+//     const budgets = await Budget.aggregate([
+//       // 1️⃣ Match budgets by user
+//       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+
+//       // 2️⃣ Lookup transactions linked to this budget
+//       {
+//         $lookup: {
+//           from: "transactions", // collection name (lowercase & plural of model)
+//           localField: "_id",
+//           foreignField: "budgetId",
+//           as: "transactions",
+//         },
+//       },
+
+//       // 3️⃣ Add totalUsed field (sum of all transaction amounts)
+//       {
+//         $addFields: {
+//           spent: { $sum: "$transactions.amount" },
+//         },
+//       },
+//     ]);
+
+//     res.json(budgets);
+//   } catch (error) {
+//     console.error("Error fetching budgets:", error);
+//     res.status(500).json({ message: "Server Error" });
+//   }
+// };
+// ✅ Get all budgets with spent + remaining (with period filtering)
+// export const getBudgets = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const now = new Date();
+
+//     const budgets = await Budget.aggregate([
+//       { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+
+//       {
+//         $lookup: {
+//           from: "transactions",
+//           let: {
+//             budgetId: "$_id",
+//             budgetCategory: "$category",
+//             budgetPeriod: "$period",
+//           },
+//           pipeline: [
+//             {
+//               $match: {
+//                 $expr: { $eq: ["$budgetId", "$$budgetId"] },
+//                 type: "expense",
+//               },
+//             },
+//             {
+//               $addFields: {
+//                 matchesPeriod: {
+//                   $switch: {
+//                     branches: [
+//                       {
+//                         case: { $eq: ["$$budgetPeriod", "daily"] },
+//                         then: {
+//                           $gte: [
+//                             "$date",
+//                             new Date(
+//                               now.getFullYear(),
+//                               now.getMonth(),
+//                               now.getDate()
+//                             ),
+//                           ],
+//                         },
+//                       },
+//                       {
+//                         case: { $eq: ["$$budgetPeriod", "weekly"] },
+//                         then: {
+//                           $gte: [
+//                             "$date",
+//                             new Date(
+//                               now.getFullYear(),
+//                               now.getMonth(),
+//                               now.getDate() - now.getDay()
+//                             ),
+//                           ],
+//                         },
+//                       },
+//                       {
+//                         case: { $eq: ["$$budgetPeriod", "monthly"] },
+//                         then: {
+//                           $gte: [
+//                             "$date",
+//                             new Date(now.getFullYear(), now.getMonth(), 1),
+//                           ],
+//                         },
+//                       },
+//                       {
+//                         case: { $eq: ["$$budgetPeriod", "yearly"] },
+//                         then: {
+//                           $gte: ["$date", new Date(now.getFullYear(), 0, 1)],
+//                         },
+//                       },
+//                     ],
+//                     default: true,
+//                   },
+//                 },
+//               },
+//             },
+//             { $match: { matchesPeriod: true } },
+//           ],
+//           as: "transactions",
+//         },
+//       },
+//       {
+//         $addFields: {
+//           spent: { $sum: "$transactions.amount" },
+//         },
+//       },
+//     ]);
+
+//     res.json(budgets);
+//   } catch (error) {
+//     console.error("Error fetching budgets:", error);
+//     res.status(500).json({ message: "Server Error" });
+//   }
+// };
 export const getBudgets = async (req, res) => {
   try {
-    const budgets = await Budget.find({ userId: req.user.id });
+    const userId = req.user.id;
+    const now = new Date();
+
+    const budgets = await Budget.aggregate([
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
+      {
+        $lookup: {
+          from: "transactions",
+          let: {
+            budgetId: "$_id",
+            budgetPeriod: "$period",
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$budgetId", "$$budgetId"] },
+                type: "expense",
+              },
+            },
+            {
+              $match: {
+                $expr: {
+                  $switch: {
+                    branches: [
+                      {
+                        case: { $eq: ["$$budgetPeriod", "daily"] },
+                        then: {
+                          $gte: [
+                            "$date",
+                            new Date(
+                              now.getFullYear(),
+                              now.getMonth(),
+                              now.getDate()
+                            ),
+                          ],
+                        },
+                      },
+                      {
+                        case: { $eq: ["$$budgetPeriod", "weekly"] },
+                        then: {
+                          $gte: [
+                            "$date",
+                            new Date(
+                              now.getFullYear(),
+                              now.getMonth(),
+                              now.getDate() - now.getDay()
+                            ),
+                          ],
+                        },
+                      },
+                      {
+                        case: { $eq: ["$$budgetPeriod", "monthly"] },
+                        then: {
+                          $gte: [
+                            "$date",
+                            new Date(now.getFullYear(), now.getMonth(), 1),
+                          ],
+                        },
+                      },
+                      {
+                        case: { $eq: ["$$budgetPeriod", "yearly"] },
+                        then: {
+                          $gte: ["$date", new Date(now.getFullYear(), 0, 1)],
+                        },
+                      },
+                    ],
+                    default: true,
+                  },
+                },
+              },
+            },
+          ],
+          as: "transactions",
+        },
+      },
+      {
+        $addFields: {
+          spent: { $sum: "$transactions.amount" },
+        },
+      },
+    ]);
+
     res.json(budgets);
   } catch (error) {
+    console.error("Error fetching budgets:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };

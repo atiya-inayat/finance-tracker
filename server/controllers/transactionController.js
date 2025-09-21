@@ -9,7 +9,7 @@ export const createTransaction = async (req, res, next) => {
     const {
       type,
       amount,
-      category,
+      // category,
       date,
       notes,
       recurring,
@@ -32,7 +32,7 @@ export const createTransaction = async (req, res, next) => {
       userId: req.user.id,
       type,
       amount,
-      category,
+      // category,
       date,
       notes,
       recurring,
@@ -54,9 +54,12 @@ export const createTransaction = async (req, res, next) => {
 // Get All Transactions (User-Specific)
 export const getTransactions = async (req, res, next) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user.id }).sort({
-      date: -1,
-    });
+    const transactions = await Transaction.find({ userId: req.user.id })
+      .populate("budgetId", "name category") // 👈 this pulls budget.name and budget.category
+
+      .sort({
+        date: -1,
+      });
 
     console.log({ transactions });
     res.json({ success: true, transactions });

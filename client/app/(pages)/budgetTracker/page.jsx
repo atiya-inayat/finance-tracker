@@ -34,6 +34,7 @@ export default function Budgeting() {
     try {
       const res = await api.get("/budgets");
       setBudgets(res.data);
+      console.log(res.data);
     } catch (err) {
       console.error("Error fetching budgets:", err);
     }

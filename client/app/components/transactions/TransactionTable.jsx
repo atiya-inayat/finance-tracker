@@ -95,7 +95,8 @@ const TransactionManager = () => {
                         index % 2 === 0 ? "bg-white" : "bg-gray-50"
                       } hover:bg-gray-100 transition`}
                     >
-                      <td className="p-3">{tx.category || "-"}</td>
+                      {/* hello there */}
+                      <td className="p-3">{tx.budgetId?.category || "-"}</td>
 
                       {/* ✅ Type with color */}
                       <td
