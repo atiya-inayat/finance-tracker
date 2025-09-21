@@ -1,4 +1,4 @@
-import TransactionManager from "@/app/components/transactions/TransactionForm";
+import TransactionManager from "@/app/components/transactions/TransactionTable";
 import React from "react";
 
 const Transactions = () => {

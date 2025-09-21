@@ -10,7 +10,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("income");
   const [category, setCategory] = useState("");
-  const [note, setNote] = useState("");
+  const [notes, setNotes] = useState("");
   const [budgets, setBudgets] = useState([]);
   const [selectedBudget, setSelectedBudget] = useState("");
 
@@ -40,7 +40,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
       amount: parseFloat(amount),
       type,
       category,
-      note,
+      notes,
       // Only include budgetId if the type is 'expense' and a budget is selected
       budgetId:
         type === "expense" && selectedBudget ? selectedBudget : undefined,
@@ -54,7 +54,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
       setAmount("");
       setType("income");
       setCategory("");
-      setNote("");
+      setNotes("");
       setSelectedBudget("");
 
       // Call the parent function to refresh the transaction list
@@ -148,12 +148,12 @@ const TransactionForm = ({ onTransactionAdded }) => {
       {/* Note Input */}
       <div className="mb-6">
         <label className="block text-gray-700 text-sm font-bold mb-2">
-          Note
+          Notes
         </label>
         <input
           type="text"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
           className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
         />
       </div>
