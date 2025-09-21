@@ -1,30 +1,27 @@
-// frontend/app/components/transactions/TransactionForm.jsx
-
 "use client";
 
 import { useState, useEffect } from "react";
-// Import named exports from the api.js file
-import { createTransaction, getBudgets } from "@/app/lib/api";
+import {
+  createTransaction,
+  updateTransaction,
+  getBudgets,
+} from "@/app/lib/api";
 
-const TransactionForm = ({ onTransactionAdded }) => {
+const TransactionForm = ({ editData, onTransactionAdded, onCancel }) => {
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("income");
   const [category, setCategory] = useState("");
   const [notes, setNotes] = useState("");
   const [budgets, setBudgets] = useState([]);
   const [selectedBudget, setSelectedBudget] = useState("");
+  const [createdAt, setCreatedAt] = useState("");
 
-  // Fetch budgets from the backend when the component loads
+  // ✅ Load budgets
   useEffect(() => {
     const fetchBudgets = async () => {
       try {
-        // Use the getBudgets function from your api.js file
         const data = await getBudgets();
         setBudgets(data);
-        // Set the first budget as the default selected one if available
-        if (data.length > 0) {
-          setSelectedBudget(data[0]._id);
-        }
       } catch (err) {
         console.error("Failed to fetch budgets:", err);
       }
@@ -32,46 +29,65 @@ const TransactionForm = ({ onTransactionAdded }) => {
     fetchBudgets();
   }, []);
 
+  // ✅ Pre-fill form if editing
+  useEffect(() => {
+    if (editData) {
+      setAmount(editData.amount || "");
+      setType(editData.type || "income");
+      setCategory(editData.category || "");
+      setNotes(editData.notes || "");
+      setSelectedBudget(editData.budgetId?._id || "");
+      setCreatedAt(
+        editData.createdAt
+          ? new Date(editData.createdAt).toISOString().split("T")[0]
+          : ""
+      );
+    }
+  }, [editData]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Construct the transaction data object
     const transactionData = {
       amount: parseFloat(amount),
       type,
       category,
       notes,
-      // Only include budgetId if the type is 'expense' and a budget is selected
+      createdAt: createdAt ? new Date(createdAt) : undefined,
       budgetId:
         type === "expense" && selectedBudget ? selectedBudget : undefined,
     };
 
     try {
-      // Use the createTransaction function from your api.js file
-      await createTransaction(transactionData);
+      if (editData) {
+        // ✅ Update existing
+        await updateTransaction(editData._id, transactionData);
+      } else {
+        // ✅ Create new
+        await createTransaction(transactionData);
+      }
 
-      // Clear the form after a successful submission
+      // Reset form
       setAmount("");
       setType("income");
       setCategory("");
       setNotes("");
       setSelectedBudget("");
+      setCreatedAt("");
 
-      // Call the parent function to refresh the transaction list
-      if (onTransactionAdded) {
-        onTransactionAdded();
-      }
+      if (onTransactionAdded) onTransactionAdded();
     } catch (err) {
-      console.error("Failed to add transaction:", err);
-      // Handle error, e.g., show an error message to the user
+      console.error("Failed to save transaction:", err);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="p-4 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4">Add a new Transaction</h2>
+      <h2 className="text-xl font-bold mb-4">
+        {editData ? "Edit Transaction" : "Add a new Transaction"}
+      </h2>
 
-      {/* Amount Input */}
+      {/* Amount */}
       <div className="mb-4">
         <label className="block text-gray-700 text-sm font-bold mb-2">
           Amount
@@ -80,12 +96,12 @@ const TransactionForm = ({ onTransactionAdded }) => {
           type="number"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          className="shadow border rounded w-full py-2 px-3 text-gray-700"
           required
         />
       </div>
 
-      {/* Type Selector (Income/Expense) */}
+      {/* Type */}
       <div className="mb-4">
         <label className="block text-gray-700 text-sm font-bold mb-2">
           Type
@@ -93,14 +109,14 @@ const TransactionForm = ({ onTransactionAdded }) => {
         <select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          className="shadow border rounded w-full py-2 px-3 text-gray-700"
         >
           <option value="income">Income</option>
           <option value="expense">Expense</option>
         </select>
       </div>
 
-      {/* Conditional Budget Selector */}
+      {/* Budget */}
       {type === "expense" && budgets.length > 0 && (
         <div className="mb-4">
           <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -110,16 +126,12 @@ const TransactionForm = ({ onTransactionAdded }) => {
             value={selectedBudget}
             onChange={(e) => {
               setSelectedBudget(e.target.value);
-              const budgetCategory = budgets.filter(
-                (budget) => budget._id === e.target.value
+              const budgetCategory = budgets.find(
+                (b) => b._id === e.target.value
               );
-              if (budgetCategory.length === 0) {
-                setCategory("");
-              } else {
-                setCategory(budgetCategory[0].category);
-              }
+              setCategory(budgetCategory ? budgetCategory.category : "");
             }}
-            className="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+            className="shadow border rounded w-full py-2 px-3 text-gray-700"
           >
             <option value="">None</option>
             {budgets.map((budget) => (
@@ -131,7 +143,7 @@ const TransactionForm = ({ onTransactionAdded }) => {
         </div>
       )}
 
-      {/* Category Input */}
+      {/* Category */}
       <div className="mb-4">
         <label className="block text-gray-700 text-sm font-bold mb-2">
           Category
@@ -140,13 +152,13 @@ const TransactionForm = ({ onTransactionAdded }) => {
           type="text"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          className="shadow border rounded w-full py-2 px-3 text-gray-700"
           required
         />
       </div>
 
-      {/* Note Input */}
-      <div className="mb-6">
+      {/* Notes */}
+      <div className="mb-4">
         <label className="block text-gray-700 text-sm font-bold mb-2">
           Notes
         </label>
@@ -154,18 +166,41 @@ const TransactionForm = ({ onTransactionAdded }) => {
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+          className="shadow border rounded w-full py-2 px-3 text-gray-700"
         />
       </div>
 
-      {/* Submit Button */}
+      {/* Created Date */}
+      <div className="mb-6">
+        <label className="block text-gray-700 text-sm font-bold mb-2">
+          Created At
+        </label>
+        <input
+          type="date"
+          value={createdAt}
+          onChange={(e) => setCreatedAt(e.target.value)}
+          className="shadow border rounded w-full py-2 px-3 text-gray-700"
+        />
+      </div>
+
+      {/* Buttons */}
       <div className="flex items-center justify-between">
         <button
           type="submit"
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
-          Add Transaction
+          {editData ? "Update Transaction" : "Add Transaction"}
         </button>
+
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="ml-2 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </form>
   );

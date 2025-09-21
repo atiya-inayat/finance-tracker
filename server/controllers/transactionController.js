@@ -10,7 +10,7 @@ export const createTransaction = async (req, res, next) => {
       type,
       amount,
       // category,
-      date,
+      createdAt,
       notes,
       recurring,
       attachments,
@@ -33,7 +33,7 @@ export const createTransaction = async (req, res, next) => {
       type,
       amount,
       // category,
-      date,
+      createdAt,
       notes,
       recurring,
       attachments,
@@ -58,7 +58,7 @@ export const getTransactions = async (req, res, next) => {
       .populate("budgetId", "name category") // 👈 this pulls budget.name and budget.category
 
       .sort({
-        date: -1,
+        createdAt: -1,
       });
 
     console.log({ transactions });
@@ -174,21 +174,49 @@ export const getDashboardData = async (req, res) => {
     const balance = income - expense;
 
     // 2️⃣ Category-wise expense breakdown
+    // const categories = await Transaction.aggregate([
+    //   { $match: { userId, type: "expense" } }, // only expenses
+    //   {
+    //     $group: {
+    //       _id: "$category",
+    //       amount: { $sum: "$amount" },
+    //     },
+    //   },
+    //   {
+    //     $project: {
+    //       category: "$_id",
+    //       amount: 1,
+    //       _id: 0,
+    //     },
+    //   },
+    // ]);
+    // 2️⃣ Category-wise expense breakdown (from budgets)
     const categories = await Transaction.aggregate([
       { $match: { userId, type: "expense" } }, // only expenses
+
       {
         $group: {
-          _id: "$category",
+          _id: "$budgetId", // group by budgetId
           amount: { $sum: "$amount" },
         },
       },
       {
-        $project: {
-          category: "$_id",
-          amount: 1,
-          _id: 0,
+        $lookup: {
+          from: "budgets", // Mongo collection name
+          localField: "_id", // transaction.budgetId
+          foreignField: "_id", // budget._id
+          as: "budget",
         },
       },
+      { $unwind: "$budget" },
+      {
+        $project: {
+          _id: 0,
+          category: "$budget.category", // 👈 use budget.category
+          amount: 1,
+        },
+      },
+      { $sort: { amount: -1 } },
     ]);
 
     // 3️⃣ Send response

@@ -37,7 +37,7 @@ export default function ReportsPage() {
       try {
         const token = localStorage.getItem("authToken"); // saved token
         const res = await axios.get(
-          "http://localhost:3000/api/reports/summary",
+          "http://localhost:3005/api/reports/summary",
           {
             headers: { Authorization: `Bearer ${token}` },
           }
@@ -57,6 +57,22 @@ export default function ReportsPage() {
           })),
           cashFlow: (res.data.cashFlow || []).map((d) => ({
             month: `${monthNames[d._id.month - 1]} ${d._id.year}`, // ✅ fix here
+            net: d.netCashFlow,
+          })),
+        });
+
+        setSummary({
+          monthlyTrends: (res.data.monthlyIncomeVsExpenses || []).map((d) => ({
+            month: `${monthNames[d._id.month - 1]} ${d._id.year}`,
+            income: d.income,
+            expenses: d.expenses,
+          })),
+          categoryBreakdown: (res.data.categorySpending || []).map((d) => ({
+            category: d.category, // ✅ fixed: use category instead of _id
+            amount: d.total,
+          })),
+          cashFlow: (res.data.cashFlow || []).map((d) => ({
+            month: `${monthNames[d._id.month - 1]} ${d._id.year}`,
             net: d.netCashFlow,
           })),
         });
