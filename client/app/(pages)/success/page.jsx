@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "@/app/lib/constant";
 
 export default function SuccessPage() {
   const [user, setUser] = useState(null);
@@ -10,7 +11,7 @@ export default function SuccessPage() {
     const fetchUser = async () => {
       try {
         // ✅ Call your backend to fetch updated user details
-        const { data } = await axios.get("http://localhost:3000/api/auth/me", {
+        const { data } = await axios.get(`${API_BASE_URL}/auth/me`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },

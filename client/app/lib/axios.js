@@ -1,8 +1,9 @@
 // lib/axios.js
 import axios from "axios";
+import { API_BASE_URL } from "./constant";
 
 const api = axios.create({
-  baseURL: "http://localhost:3005/api", // 👈 change to your backend port
+  baseURL: API_BASE_URL, // 👈 change to your backend port
 });
 
 // Automatically attach auth token

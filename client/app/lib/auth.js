@@ -1,6 +1,5 @@
 import axios from "axios";
-
-const API_URL = "http://localhost:3000/api/auth";
+import { API_BASE_URL } from "./constant";
 
 /**
  * Registers a new user with the server.
@@ -11,7 +10,7 @@ const API_URL = "http://localhost:3000/api/auth";
  */
 export const register = async (name, email, plainTextPassword) => {
   try {
-    const response = await axios.post(`${API_URL}/register`, {
+    const response = await axios.post(`${API_BASE_URL}/auth/register`, {
       name,
       email,
       plainTextPassword,

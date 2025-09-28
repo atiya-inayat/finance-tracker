@@ -24,6 +24,13 @@ const userSchema = new mongoose.Schema({
   stripeCustomerId: {
     type: String,
   },
+  // 🔑 Required for password reset flow
+  resetPasswordToken: {
+    type: String,
+  },
+  resetPasswordExpires: {
+    type: Date,
+  },
 });
 
 const User = mongoose.model("User", userSchema);

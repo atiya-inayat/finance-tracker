@@ -4,13 +4,13 @@ import { useForm } from "react-hook-form";
 import { useState } from "react";
 import axios from "axios";
 import Link from "next/link";
+import { API_BASE_URL } from "@/app/lib/constant";
 
 // This is the authentication logic that was previously in a separate file.
-const API_URL = "http://localhost:3000/api/auth";
 
 export const registerUser = async (name, email, plainTextPassword) => {
   try {
-    const response = await axios.post(`${API_URL}/register`, {
+    const response = await axios.post(`${API_BASE_URL}/auth/register`, {
       name,
       email,
       plainTextPassword,

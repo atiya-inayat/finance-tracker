@@ -5,13 +5,13 @@ import { useState } from "react";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/navigation"; // ✅ not next/router
-import { API_URL } from "@/app/lib/api";
+import { API_BASE_URL } from "@/app/lib/constant";
 
 // This is the authentication logic that was previously in a separate file.
 
 export const login = async (email, plainTextPassword) => {
   try {
-    const response = await axios.post(`${API_URL}/auth/login`, {
+    const response = await axios.post(`${API_BASE_URL}/auth/login`, {
       email,
       plainTextPassword,
     });
