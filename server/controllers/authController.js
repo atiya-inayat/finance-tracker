@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 
+// sign up
 export const registerUser = async (req, res) => {
   try {
     const { name, email, plainTextPassword } = req.body;
@@ -28,6 +29,8 @@ export const registerUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      subscriptionStatus: "free",
+      onboardingCompleted: false,
     });
 
     const { password, ...userData } = newUser._doc;
@@ -38,6 +41,7 @@ export const registerUser = async (req, res) => {
   }
 };
 
+// sign in
 export const loginUser = async (req, res) => {
   try {
     const { email, plainTextPassword } = req.body;
@@ -174,4 +178,20 @@ export const resetPassword = async (req, res) => {
   await user.save();
 
   res.status(200).json({ message: "Password has been successfully changed." });
+};
+
+export const completeOnboarding = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.onboardingCompleted = true;
+    await user.save();
+
+    res.json({ message: "Onboarding completed", user });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
 };

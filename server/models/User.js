@@ -14,10 +14,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  subscriptionStatus: {
-    type: String,
-    default: "free",
-  },
+
   stripeSubscriptionId: {
     type: String,
   },
@@ -30,6 +27,14 @@ const userSchema = new mongoose.Schema({
   },
   resetPasswordExpires: {
     type: Date,
+  },
+  onboardingCompleted: {
+    type: Boolean,
+    default: false,
+  },
+  subscriptionStatus: {
+    type: String,
+    default: "free", // free by default
   },
 });
 

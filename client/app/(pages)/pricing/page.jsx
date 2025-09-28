@@ -18,7 +18,7 @@ const PricingPage = () => {
 
       // make request to backend
       const { data } = await axios.post(
-        "http://localhost:3000/api/stripe/create-checkout-session",
+        "http://localhost:3005/api/stripe/create-checkout-session",
         {},
         {
           headers: {
