@@ -6,6 +6,7 @@ import dashboardRoute from "./routes/dashboardRoute.js";
 import budgetRoutes from "./routes/budgetRoutes.js";
 import stripeRoutes from "./routes/stripeRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import profileRoutes from "./routes/profileRoutes.js";
 import { handleWebhook } from "./controllers/stripeController.js"; // import webhook controller
 import "./utils/cronJobs.js";
 import cors from "cors";
@@ -44,6 +45,7 @@ app.use("/api", dashboardRoute);
 app.use("/api/stripe", stripeRoutes);
 app.use("/api/budgets", budgetRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/profile", profileRoutes);
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
