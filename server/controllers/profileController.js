@@ -1,3 +1,6 @@
+import User from "../models/User.js";
+import bcrypt from "bcrypt";
+
 export const getProfile = async (req, res) => {
   try {
     res.json({
@@ -12,6 +15,8 @@ export const getProfile = async (req, res) => {
 // ✏️ UPDATE PROFILE (name, onboarding, etc.)
 export const updateProfile = async (req, res) => {
   try {
+    // console.log("REQ.USER =>", req.user);
+    // console.log("REQ.BODY =>", req.body);
     const { name } = req.body;
 
     if (!name) {
@@ -49,26 +54,33 @@ export const updatePassword = async (req, res) => {
         .json({ success: false, message: "All fields are required" });
     }
 
-    // Check old password
-    const isMatch = await bcrypt.compare(oldPassword, req.user.password);
+    // ✅ Get fresh user from DB with password
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // ✅ Compare old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       return res
         .status(400)
         .json({ success: false, message: "Old password is incorrect" });
     }
 
-    // Hash new password
+    // ✅ Hash new password
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-    await User.findByIdAndUpdate(req.user._id, { password: hashedPassword });
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
 
     res.json({
       success: true,
       message: "Password updated successfully",
     });
   } catch (error) {
-    console.log(error);
+    console.log("Password Update Error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
