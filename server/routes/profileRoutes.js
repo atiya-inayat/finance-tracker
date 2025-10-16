@@ -5,6 +5,7 @@ import {
   updateProfile,
   updatePassword,
   updateAvatar,
+  deleteAccount,
 } from "../controllers/profileController.js";
 
 const router = express.Router();
@@ -20,5 +21,8 @@ router.put("/password", authMiddleware, updatePassword);
 
 // Update avatar (photo)
 router.put("/avatar", authMiddleware, updateAvatar);
+
+// dlt account
+router.delete("/delete", authMiddleware, deleteAccount);
 
 export default router;

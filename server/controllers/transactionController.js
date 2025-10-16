@@ -232,6 +232,20 @@ export const getDashboardData = async (req, res) => {
       error: error.message,
     });
   }
+
+  // ----------------------------------------------------
+  const totalTransactions = await Transaction.countDocuments({ userId });
+
+  res.json({
+    success: true,
+    dashboard: {
+      income,
+      expense,
+      balance,
+      totalTransactions,
+    },
+    categories,
+  });
 };
 
 export const getAdvancedAnalytics = async (req, res) => {

@@ -3,22 +3,21 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/app/lib/constant";
+import axios from "axios";
 
 /**
  * app/profile/page.jsx
- * Protected Profile Page (App Router) — redirects to /login if no token
+ * Protected Profile Page (App Router)
+ * - Backend:
+ *   GET  /profile/me
+ *   PUT  /profile/update
+ *   PUT  /profile/password
+ *   PUT  /profile/avatar
+ *   GET  /transactions/dashboard-data
+ *   GET  /transactions
  *
- * Backend endpoints expected on http://localhost:3005/api:
- * GET  /profile/me
- * PUT  /profile/update
- * PUT  /profile/password
- * PUT  /profile/avatar
- * POST /stripe/create-portal-session
- *
- * Auth: uses JWT token stored in localStorage under key "token"
+ * Auth: JWT token stored in localStorage under key "authToken"
  */
-
-// const API_BASE = "http://localhost:3005/api";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -35,9 +34,7 @@ export default function ProfilePage() {
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
   const [theme, setTheme] = useState("light");
-  const [language, setLanguage] = useState("en");
   const [notifyMonthlySummary, setNotifyMonthlySummary] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
 
@@ -54,6 +51,18 @@ export default function ProfilePage() {
   // stripe portal
   const [portalLoading, setPortalLoading] = useState(false);
 
+  // delete account
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // overview (quick stats)
+  const [overview, setOverview] = useState({
+    totalTransactions: 0,
+    currentBalance: 0,
+    income: 0,
+    expense: 0,
+  });
+
   // helper to read token
   function getToken() {
     try {
@@ -63,7 +72,7 @@ export default function ProfilePage() {
     }
   }
 
-  // Fetch user profile — protect route: redirect to /login if no token or fetch fails
+  // Fetch user profile — protect route
   useEffect(() => {
     let mounted = true;
     async function fetchProfile() {
@@ -71,7 +80,6 @@ export default function ProfilePage() {
 
       const token = getToken();
       if (!token) {
-        // no token -> redirect to login
         router.push("/login");
         return;
       }
@@ -84,7 +92,6 @@ export default function ProfilePage() {
           },
         });
 
-        // unauthorized or failed -> redirect to login
         if (res.status === 401 || res.status === 403) {
           router.push("/login");
           return;
@@ -99,9 +106,7 @@ export default function ProfilePage() {
           setName(data.user.name || "");
           setDisplayName(data.user.displayName || "");
           setCurrency(data.user.currency || "USD");
-          setDateFormat(data.user.dateFormat || "DD/MM/YYYY");
           setTheme(data.user.theme || "light");
-          setLanguage(data.user.language || "en");
           setNotifyMonthlySummary(Boolean(data.user.notifyMonthlySummary));
           setNotifyBudgetAlerts(Boolean(data.user.notifyBudgetAlerts));
           setAvatarPreview(data.user.avatarUrl || null);
@@ -135,13 +140,12 @@ export default function ProfilePage() {
         return;
       }
 
+      // Only send fields that exist in backend - removed dateFormat & language
       const payload = {
         name,
         displayName,
         currency,
-        dateFormat,
         theme,
-        language,
         notifyMonthlySummary,
         notifyBudgetAlerts,
       };
@@ -158,7 +162,6 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update profile");
 
-      // update local user state
       setUser(data.user || { ...user, ...payload });
       alert("Profile updated successfully.");
     } catch (err) {
@@ -204,14 +207,49 @@ export default function ProfilePage() {
     }
   }
 
-  // Avatar upload: sends FormData with file under 'avatar'
+  // Delete account
+  async function handleDeleteAccount() {
+    if (!confirmDelete) {
+      const confirmed = window.confirm(
+        "⚠️ Are you sure you want to permanently delete your account? This action cannot be undone."
+      );
+      if (!confirmed) return;
+    }
+
+    setDeleting(true);
+    try {
+      const token = getToken();
+      if (!token) {
+        router.push("/login");
+        return;
+      }
+
+      const res = await fetch(`${API_BASE_URL}/profile/delete`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to delete account");
+
+      alert("Your account has been deleted successfully.");
+      localStorage.removeItem("authToken");
+      router.push("/signup");
+    } catch (err) {
+      console.error(err);
+      alert("Error deleting account: " + (err.message || err));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  // Avatar upload
   async function handleAvatarChange(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    // preview locally immediately
     setAvatarPreview(URL.createObjectURL(file));
-
-    // upload to backend
     setUploadingAvatar(true);
     try {
       const token = getToken();
@@ -226,7 +264,6 @@ export default function ProfilePage() {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
-          // Do NOT set Content-Type for FormData
         },
         body: formData,
       });
@@ -234,7 +271,6 @@ export default function ProfilePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Avatar upload failed");
 
-      // If backend returns updated user object, update local state
       if (data.user && data.user.avatarUrl) {
         setUser(data.user);
         setAvatarPreview(data.user.avatarUrl);
@@ -287,6 +323,101 @@ export default function ProfilePage() {
     }
   }
 
+  // ------------------------------
+  // Transaction overview logic (with two methods for total transaction count)
+  // ------------------------------
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchTransactionOverview = async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+
+        // 1) Primary: hit dashboard-data endpoint
+        const res = await axios.get(
+          `${API_BASE_URL}/transactions/dashboard-data`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        console.log("Dashboard data:", res.data);
+
+        const dashboard = res.data.dashboard || {};
+        // dashboard.balance, dashboard.income, dashboard.expense are expected
+        const currentBalance = dashboard.balance ?? 0;
+        const income = dashboard.income ?? 0;
+        const expense = dashboard.expense ?? 0;
+
+        // 2) First try: use dashboard.totalTransactions if backend provides it
+        let totalTransactions = dashboard.totalTransactions ?? null;
+
+        // 3) Fallback (Method 2): request /transactions and count
+        if (
+          totalTransactions === null ||
+          typeof totalTransactions === "undefined"
+        ) {
+          try {
+            const allTxRes = await axios.get(`${API_BASE_URL}/transactions`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (allTxRes?.data?.transactions) {
+              totalTransactions = allTxRes.data.transactions.length;
+              console.log(
+                "Total transactions (fallback by fetching /transactions):",
+                totalTransactions
+              );
+            } else {
+              // If response structure different, attempt to parse
+              const maybeArr = Array.isArray(allTxRes.data)
+                ? allTxRes.data
+                : null;
+              if (maybeArr) {
+                totalTransactions = maybeArr.length;
+                console.log(
+                  "Total transactions (fallback parsing array):",
+                  totalTransactions
+                );
+              } else {
+                totalTransactions = 0;
+              }
+            }
+          } catch (err) {
+            console.warn(
+              "Failed to fetch /transactions for fallback count:",
+              err
+            );
+            totalTransactions = 0;
+          }
+        } else {
+          console.log(
+            "Total transactions (from dashboard):",
+            totalTransactions
+          );
+        }
+
+        if (!mounted) return;
+
+        setOverview({
+          totalTransactions: totalTransactions || 0,
+          currentBalance,
+          income,
+          expense,
+        });
+      } catch (err) {
+        console.error("Failed to fetch overview data", err);
+      }
+    };
+
+    fetchTransactionOverview();
+
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Logout helper
   function handleLogout() {
     try {
@@ -306,12 +437,9 @@ export default function ProfilePage() {
     );
   }
 
-  // If user is not set (redirect should have happened) — show nothing
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
-  // Render the advanced Tailwind UI
+  // Render UI
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
@@ -357,9 +485,7 @@ export default function ProfilePage() {
                       />
                     </label>
                     <button
-                      onClick={() => {
-                        if (fileInputRef.current) fileInputRef.current.click();
-                      }}
+                      onClick={() => fileInputRef.current?.click()}
                       className="px-3 py-2 bg-white border rounded text-sm"
                     >
                       Browse
@@ -403,21 +529,39 @@ export default function ProfilePage() {
             </div>
 
             {/* Quick Stats Card */}
+            {/* Quick Stats Card */}
             <div className="bg-white rounded-lg shadow p-4 mt-6">
               <div className="text-sm text-gray-500">Quick Overview</div>
               <div className="mt-4 grid grid-cols-2 gap-4">
                 <div className="text-center">
                   <div className="text-lg font-semibold">
-                    {user.totalTransactions || 0}
+                    {overview?.totalTransactions ?? 0}
                   </div>
                   <div className="text-xs text-gray-500">Transactions</div>
                 </div>
+
+                {/* ✅ Current Balance with Deficit Label */}
                 <div className="text-center">
-                  <div className="text-lg font-semibold">
-                    ${user.currentBalance?.toFixed?.(2) ?? "0.00"}
-                  </div>
+                  {overview?.currentBalance < 0 ? (
+                    <div className="text-lg font-semibold text-red-600">
+                      Deficit: $
+                      {Math.abs(Number(overview?.currentBalance ?? 0)).toFixed(
+                        2
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-lg font-semibold">
+                      ${Number(overview?.currentBalance ?? 0).toFixed(2)}
+                    </div>
+                  )}
                   <div className="text-xs text-gray-500">Current Balance</div>
                 </div>
+              </div>
+
+              {/* optional extra small breakdown */}
+              <div className="mt-3 text-xs text-gray-500">
+                Income: ${Number(overview?.income ?? 0).toFixed(2)} • Expense: $
+                {Number(overview?.expense ?? 0).toFixed(2)}
               </div>
             </div>
           </aside>
@@ -453,7 +597,6 @@ export default function ProfilePage() {
               {activeTab === "profile" && (
                 <section>
                   <h2 className="text-xl font-semibold mb-4">Profile</h2>
-
                   <form onSubmit={handleSaveProfile} className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">
@@ -491,7 +634,6 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => {
-                          // reset to original values from user object
                           setName(user.name || "");
                           setDisplayName(user.displayName || "");
                         }}
@@ -507,7 +649,6 @@ export default function ProfilePage() {
               {activeTab === "preferences" && (
                 <section>
                   <h2 className="text-xl font-semibold mb-4">Preferences</h2>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">
@@ -527,21 +668,6 @@ export default function ProfilePage() {
 
                     <div>
                       <label className="block text-sm font-medium mb-1">
-                        Date format
-                      </label>
-                      <select
-                        value={dateFormat}
-                        onChange={(e) => setDateFormat(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                      >
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
                         Theme
                       </label>
                       <select
@@ -551,21 +677,6 @@ export default function ProfilePage() {
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Language
-                      </label>
-                      <select
-                        value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                      >
-                        <option value="en">English</option>
-                        <option value="ur">Urdu</option>
-                        <option value="es">Español</option>
                       </select>
                     </div>
                   </div>
@@ -579,11 +690,8 @@ export default function ProfilePage() {
                     </button>
                     <button
                       onClick={() => {
-                        // reset preferences
                         setCurrency(user.currency || "USD");
-                        setDateFormat(user.dateFormat || "DD/MM/YYYY");
                         setTheme(user.theme || "light");
-                        setLanguage(user.language || "en");
                       }}
                       className="px-4 py-2 border rounded"
                     >
@@ -596,7 +704,6 @@ export default function ProfilePage() {
               {activeTab === "notifications" && (
                 <section>
                   <h2 className="text-xl font-semibold mb-4">Notifications</h2>
-
                   <div className="space-y-4">
                     <ToggleRow
                       label="Monthly summary email"
@@ -624,7 +731,6 @@ export default function ProfilePage() {
               {activeTab === "security" && (
                 <section>
                   <h2 className="text-xl font-semibold mb-4">Security</h2>
-
                   <form
                     onSubmit={handleChangePassword}
                     className="space-y-4 max-w-md"
@@ -675,6 +781,24 @@ export default function ProfilePage() {
                       </button>
                     </div>
                   </form>
+
+                  <hr className="my-6" />
+                  <div className="mt-4">
+                    <h3 className="text-lg font-semibold text-red-600 mb-2">
+                      Danger Zone
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Once you delete your account, all your data will be
+                      permanently removed. This action cannot be undone.
+                    </p>
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    >
+                      {deleting ? "Deleting..." : "Delete My Account"}
+                    </button>
+                  </div>
                 </section>
               )}
             </div>

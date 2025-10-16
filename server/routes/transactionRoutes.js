@@ -6,6 +6,7 @@ import {
   updateTransaction,
   deleteTransaction,
   getAdvancedAnalytics,
+  getDashboardData,
 } from "../controllers/transactionController.js";
 import { authMiddleware } from "../middleware/authMiddleware.js";
 
@@ -14,6 +15,7 @@ const router = express.Router();
 // Routes
 router.post("/", authMiddleware, createTransaction); // Create
 router.get("/", authMiddleware, getTransactions); // Get all
+router.get("/dashboard-data", authMiddleware, getDashboardData); // Get advance transaction
 router.get("/analytics", authMiddleware, getAdvancedAnalytics); // Get advance transaction
 router.get("/:id", authMiddleware, getTransactionById); // Get by ID
 router.put("/:id", authMiddleware, updateTransaction); // Update

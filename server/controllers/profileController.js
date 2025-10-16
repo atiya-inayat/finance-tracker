@@ -85,6 +85,27 @@ export const updatePassword = async (req, res) => {
   }
 };
 
+// DELETE /api/profile/delete
+export const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Optional: You can also delete related data like user’s transactions, etc.
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Your account has been deleted successfully.",
+    });
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while deleting account.",
+    });
+  }
+};
+
 export const updateAvatar = async (req, res) => {
   // Will implement soon
 };
