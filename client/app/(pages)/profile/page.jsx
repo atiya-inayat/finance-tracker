@@ -1,67 +1,62 @@
 "use client";
-
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/app/lib/constant";
 import axios from "axios";
+import { getRate, currencySymbols } from "@/app/lib/exchangeClient"; // adjust path if different
 
 /**
  * app/profile/page.jsx
  * Protected Profile Page (App Router)
- * - Backend:
- *   GET  /profile/me
- *   PUT  /profile/update
- *   PUT  /profile/password
- *   PUT  /profile/avatar
- *   GET  /transactions/dashboard-data
- *   GET  /transactions
- *
- * Auth: JWT token stored in localStorage under key "authToken"
  */
-
 export default function ProfilePage() {
   const router = useRouter();
-
   // user + loading state
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
-
   // UI state
   const [activeTab, setActiveTab] = useState("profile");
   const [saving, setSaving] = useState(false);
-
   // profile form state
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
+  // NOTE: 'currency' state drives the conversion. It is set from user profile data.
   const [currency, setCurrency] = useState("USD");
   const [theme, setTheme] = useState("light");
   const [notifyMonthlySummary, setNotifyMonthlySummary] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
-
   // password form
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
-
   // avatar
   const fileInputRef = useRef(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
   // stripe portal
   const [portalLoading, setPortalLoading] = useState(false);
-
   // delete account
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // overview (quick stats)
-  const [overview, setOverview] = useState({
+  // ------------------------------
+  // CURRENCY CONVERSION: New state for overview and transactions
+  // ------------------------------
+
+  // keep existing overview raw state that you already have (raw USD from backend)
+  const [overviewRaw, setOverviewRaw] = useState(null);
+  // converted overview for display (based on selected currency)
+  const [overviewConverted, setOverviewConverted] = useState({
     totalTransactions: 0,
     currentBalance: 0,
     income: 0,
     expense: 0,
+    currency: "USD",
+    currencySymbol: "$",
   });
+  // transaction lists
+  const [transactionsRaw, setTransactionsRaw] = useState([]);
+  const [transactionsConverted, setTransactionsConverted] = useState([]);
 
   // helper to read token
   function getToken() {
@@ -77,13 +72,11 @@ export default function ProfilePage() {
     let mounted = true;
     async function fetchProfile() {
       setLoadingUser(true);
-
       const token = getToken();
       if (!token) {
         router.push("/login");
         return;
       }
-
       try {
         const res = await fetch(`${API_BASE_URL}/profile/me`, {
           headers: {
@@ -91,20 +84,18 @@ export default function ProfilePage() {
             "Content-Type": "application/json",
           },
         });
-
         if (res.status === 401 || res.status === 403) {
           router.push("/login");
           return;
         }
-
         const data = await res.json();
         if (!mounted) return;
-
         if (res.ok && data.user) {
           setUser(data.user);
           // populate form state
           setName(data.user.name || "");
           setDisplayName(data.user.displayName || "");
+          // IMPORTANT: Set currency from user profile here
           setCurrency(data.user.currency || "USD");
           setTheme(data.user.theme || "light");
           setNotifyMonthlySummary(Boolean(data.user.notifyMonthlySummary));
@@ -121,13 +112,176 @@ export default function ProfilePage() {
         if (mounted) setLoadingUser(false);
       }
     }
-
     fetchProfile();
     return () => {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ------------------------------
+  // NEW HOOK 1: Fetch raw dashboard data (USD) and store into overviewRaw
+  // ------------------------------
+  useEffect(() => {
+    let mounted = true;
+    const fetchRawOverview = async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+        const r = await axios.get(
+          `${API_BASE_URL}/transactions/dashboard-data`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        console.log("Dashboard data (raw):", r.data);
+        // backend returns dashboard in USD (per your requirement)
+        if (!mounted) return;
+        setOverviewRaw(r.data.dashboard || null);
+      } catch (err) {
+        console.error("fetchRawOverview error:", err);
+      }
+    };
+    fetchRawOverview();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount (and when you want to refresh)
+
+  // ------------------------------
+  // NEW HOOK 2: Convert overviewRaw USD -> selected currency (client-side)
+  // ------------------------------
+  useEffect(() => {
+    let mounted = true;
+    const doConvert = async () => {
+      if (!overviewRaw) return;
+      // if user currency is USD, just copy raw values
+      const target = (currency || "USD").toUpperCase();
+      if (target === "USD") {
+        if (!mounted) return;
+        setOverviewConverted({
+          totalTransactions: overviewRaw.totalTransactions ?? 0,
+          currentBalance:
+            overviewRaw.balance ?? overviewRaw.currentBalance ?? 0,
+          income: overviewRaw.income ?? 0,
+          expense: overviewRaw.expense ?? 0,
+          currency: "USD",
+          currencySymbol: currencySymbols["USD"] || "$",
+        });
+        return;
+      }
+      try {
+        const { rate, symbol } = await getRate(target);
+        // ensure numbers
+        const incomeUSD = Number(overviewRaw.income ?? 0);
+        const expenseUSD = Number(overviewRaw.expense ?? 0);
+        const balanceUSD = Number(
+          overviewRaw.balance ?? overviewRaw.currentBalance ?? 0
+        );
+        const conv = {
+          totalTransactions: overviewRaw.totalTransactions ?? 0,
+          currentBalance: Number(balanceUSD * rate),
+          income: Number(incomeUSD * rate),
+          expense: Number(expenseUSD * rate),
+          currency: target,
+          currencySymbol: symbol || currencySymbols[target] || target,
+        };
+        if (!mounted) return;
+        setOverviewConverted(conv);
+      } catch (err) {
+        console.error("Conversion failed:", err);
+        // fallback to USD if conversion fails
+        if (!mounted) return;
+        setOverviewConverted({
+          totalTransactions: overviewRaw.totalTransactions ?? 0,
+          currentBalance:
+            overviewRaw.balance ?? overviewRaw.currentBalance ?? 0,
+          income: overviewRaw.income ?? 0,
+          expense: overviewRaw.expense ?? 0,
+          currency: "USD",
+          currencySymbol: currencySymbols["USD"] || "$",
+        });
+      }
+    };
+    doConvert();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [overviewRaw, currency]);
+
+  // ------------------------------
+  // NEW HOOK 3: Fetch raw transaction list
+  // ------------------------------
+  useEffect(() => {
+    let mounted = true;
+    const fetchTx = async () => {
+      try {
+        const token = getToken();
+        if (!token) return;
+        const r = await axios.get(`${API_BASE_URL}/transactions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!mounted) return;
+        // Assuming transactions are returned in r.data.transactions
+        setTransactionsRaw(r.data.transactions || []);
+      } catch (err) {
+        console.error("fetch tx err", err);
+      }
+    };
+    fetchTx();
+    return () => {
+      mounted = false;
+    };
+  }, []); // call whenever you want to refresh
+
+  // ------------------------------
+  // NEW HOOK 4: Convert transaction list USD -> selected currency
+  // ------------------------------
+  useEffect(() => {
+    let mounted = true;
+    const doConvertTx = async () => {
+      const target = (currency || "USD").toUpperCase();
+      if (!transactionsRaw?.length) {
+        setTransactionsConverted([]);
+        return;
+      }
+      try {
+        const { rate, symbol } = await getRate(target);
+        const conv = transactionsRaw.map((t) => {
+          const amountUSD = Number(t.amount || 0);
+          return {
+            ...t,
+            amountConverted: Number(amountUSD * rate),
+            currency: target,
+            currencySymbol: symbol,
+          };
+        });
+        if (!mounted) return;
+        setTransactionsConverted(conv);
+      } catch (err) {
+        console.warn("tx conversion failed", err);
+        // fallback to USD
+        if (!mounted) return;
+        setTransactionsConverted(
+          transactionsRaw.map((t) => ({
+            ...t,
+            amountConverted: t.amount,
+            currency: "USD",
+            currencySymbol: "$",
+          }))
+        );
+      }
+    };
+    doConvertTx();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactionsRaw, currency]);
+
+  // REMOVED OLD OVERVIEW FETCH LOGIC (Replaced by NEW HOOKS 1 & 2)
 
   // Save profile (name, displayName, preferences)
   async function handleSaveProfile(e) {
@@ -139,17 +293,15 @@ export default function ProfilePage() {
         router.push("/login");
         return;
       }
-
       // Only send fields that exist in backend - removed dateFormat & language
       const payload = {
         name,
         displayName,
-        currency,
+        currency, // This is the new currency being saved
         theme,
         notifyMonthlySummary,
         notifyBudgetAlerts,
       };
-
       const res = await fetch(`${API_BASE_URL}/profile/update`, {
         method: "PUT",
         headers: {
@@ -158,12 +310,32 @@ export default function ProfilePage() {
         },
         body: JSON.stringify(payload),
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update profile");
-
       setUser(data.user || { ...user, ...payload });
       alert("Profile updated successfully.");
+
+      // NEW: Refresh dashboard and transactions raw data to trigger client-side conversion with new currency
+      try {
+        const token = getToken();
+        if (token) {
+          // Refresh dashboard raw data so conversion runs with new currency
+          const r = await axios.get(
+            `${API_BASE_URL}/transactions/dashboard-data`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+          setOverviewRaw(r.data.dashboard || null);
+          // Also re-fetch transactions
+          const txR = await axios.get(`${API_BASE_URL}/transactions`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setTransactionsRaw(txR.data.transactions || []);
+        }
+      } catch (err) {
+        console.warn("refresh after save failed", err);
+      }
     } catch (err) {
       console.error(err);
       alert("Error saving profile: " + (err.message || err));
@@ -206,7 +378,6 @@ export default function ProfilePage() {
       setChangingPassword(false);
     }
   }
-
   // Delete account
   async function handleDeleteAccount() {
     if (!confirmDelete) {
@@ -215,7 +386,6 @@ export default function ProfilePage() {
       );
       if (!confirmed) return;
     }
-
     setDeleting(true);
     try {
       const token = getToken();
@@ -223,17 +393,14 @@ export default function ProfilePage() {
         router.push("/login");
         return;
       }
-
       const res = await fetch(`${API_BASE_URL}/profile/delete`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to delete account");
-
       alert("Your account has been deleted successfully.");
       localStorage.removeItem("authToken");
       router.push("/signup");
@@ -244,7 +411,6 @@ export default function ProfilePage() {
       setDeleting(false);
     }
   }
-
   // Avatar upload
   async function handleAvatarChange(e) {
     const file = e.target.files && e.target.files[0];
@@ -259,7 +425,6 @@ export default function ProfilePage() {
       }
       const formData = new FormData();
       formData.append("avatar", file);
-
       const res = await fetch(`${API_BASE_URL}/profile/avatar`, {
         method: "PUT",
         headers: {
@@ -267,17 +432,14 @@ export default function ProfilePage() {
         },
         body: formData,
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Avatar upload failed");
-
       if (data.user && data.user.avatarUrl) {
         setUser(data.user);
         setAvatarPreview(data.user.avatarUrl);
       } else if (data.avatarUrl) {
         setAvatarPreview(data.avatarUrl);
       }
-
       alert("Avatar updated.");
     } catch (err) {
       console.error(err);
@@ -287,7 +449,6 @@ export default function ProfilePage() {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
-
   // Open Stripe billing portal
   async function handleManageSubscription() {
     try {
@@ -323,101 +484,6 @@ export default function ProfilePage() {
     }
   }
 
-  // ------------------------------
-  // Transaction overview logic (with two methods for total transaction count)
-  // ------------------------------
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchTransactionOverview = async () => {
-      try {
-        const token = getToken();
-        if (!token) return;
-
-        // 1) Primary: hit dashboard-data endpoint
-        const res = await axios.get(
-          `${API_BASE_URL}/transactions/dashboard-data`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-
-        console.log("Dashboard data:", res.data);
-
-        const dashboard = res.data.dashboard || {};
-        // dashboard.balance, dashboard.income, dashboard.expense are expected
-        const currentBalance = dashboard.balance ?? 0;
-        const income = dashboard.income ?? 0;
-        const expense = dashboard.expense ?? 0;
-
-        // 2) First try: use dashboard.totalTransactions if backend provides it
-        let totalTransactions = dashboard.totalTransactions ?? null;
-
-        // 3) Fallback (Method 2): request /transactions and count
-        if (
-          totalTransactions === null ||
-          typeof totalTransactions === "undefined"
-        ) {
-          try {
-            const allTxRes = await axios.get(`${API_BASE_URL}/transactions`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            if (allTxRes?.data?.transactions) {
-              totalTransactions = allTxRes.data.transactions.length;
-              console.log(
-                "Total transactions (fallback by fetching /transactions):",
-                totalTransactions
-              );
-            } else {
-              // If response structure different, attempt to parse
-              const maybeArr = Array.isArray(allTxRes.data)
-                ? allTxRes.data
-                : null;
-              if (maybeArr) {
-                totalTransactions = maybeArr.length;
-                console.log(
-                  "Total transactions (fallback parsing array):",
-                  totalTransactions
-                );
-              } else {
-                totalTransactions = 0;
-              }
-            }
-          } catch (err) {
-            console.warn(
-              "Failed to fetch /transactions for fallback count:",
-              err
-            );
-            totalTransactions = 0;
-          }
-        } else {
-          console.log(
-            "Total transactions (from dashboard):",
-            totalTransactions
-          );
-        }
-
-        if (!mounted) return;
-
-        setOverview({
-          totalTransactions: totalTransactions || 0,
-          currentBalance,
-          income,
-          expense,
-        });
-      } catch (err) {
-        console.error("Failed to fetch overview data", err);
-      }
-    };
-
-    fetchTransactionOverview();
-
-    return () => {
-      mounted = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Logout helper
   function handleLogout() {
     try {
@@ -439,6 +505,300 @@ export default function ProfilePage() {
 
   if (!user) return null;
 
+  // Components for Tabs
+  const ProfileTab = (
+    <form onSubmit={handleSaveProfile} className="space-y-6">
+      <div className="bg-white p-6 rounded-lg shadow space-y-4">
+        <h3 className="text-lg font-semibold border-b pb-2">
+          User Information
+        </h3>
+        <div>
+          <label
+            htmlFor="name"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Name
+          </label>
+          <input
+            type="text"
+            id="name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          />
+        </div>
+        <div>
+          <label
+            htmlFor="displayName"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Display Name
+          </label>
+          <input
+            type="text"
+            id="displayName"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow space-y-4">
+        <h3 className="text-lg font-semibold border-b pb-2">Preferences</h3>
+        <div>
+          <label
+            htmlFor="currency"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Base Currency
+          </label>
+          <select
+            id="currency"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          >
+            {Object.keys(currencySymbols).map((code) => (
+              <option key={code} value={code}>
+                {code} - {currencySymbols[code]}
+              </option>
+            ))}
+            {/* Add more options if needed */}
+          </select>
+        </div>
+        <div>
+          <label
+            htmlFor="theme"
+            className="block text-sm font-medium text-gray-700"
+          >
+            Theme
+          </label>
+          <select
+            id="theme"
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div className="flex items-start">
+          <input
+            id="notifyMonthlySummary"
+            type="checkbox"
+            checked={notifyMonthlySummary}
+            onChange={(e) => setNotifyMonthlySummary(e.target.checked)}
+            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
+          />
+          <label
+            htmlFor="notifyMonthlySummary"
+            className="ml-3 text-sm font-medium text-gray-700"
+          >
+            Send me monthly financial summaries
+          </label>
+        </div>
+        <div className="flex items-start">
+          <input
+            id="notifyBudgetAlerts"
+            type="checkbox"
+            checked={notifyBudgetAlerts}
+            onChange={(e) => setNotifyBudgetAlerts(e.target.checked)}
+            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
+          />
+          <label
+            htmlFor="notifyBudgetAlerts"
+            className="ml-3 text-sm font-medium text-gray-700"
+          >
+            Notify me of budget alerts
+          </label>
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save Profile"}
+        </button>
+      </div>
+    </form>
+  );
+
+  const PasswordTab = (
+    <form
+      onSubmit={handleChangePassword}
+      className="bg-white p-6 rounded-lg shadow space-y-6"
+    >
+      <h3 className="text-lg font-semibold border-b pb-2">Change Password</h3>
+      <div>
+        <label
+          htmlFor="oldPassword"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Current Password
+        </label>
+        <input
+          type="password"
+          id="oldPassword"
+          value={oldPassword}
+          onChange={(e) => setOldPassword(e.target.value)}
+          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          required
+        />
+      </div>
+      <div>
+        <label
+          htmlFor="newPassword"
+          className="block text-sm font-medium text-gray-700"
+        >
+          New Password
+        </label>
+        <input
+          type="password"
+          id="newPassword"
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          required
+        />
+      </div>
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={changingPassword}
+          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {changingPassword ? "Changing..." : "Change Password"}
+        </button>
+      </div>
+    </form>
+  );
+
+  const SubscriptionTab = (
+    <div className="bg-white p-6 rounded-lg shadow space-y-6">
+      <h3 className="text-lg font-semibold border-b pb-2">
+        Subscription & Billing
+      </h3>
+      <p className="text-gray-700">
+        Your current plan status is:
+        <span
+          className={`inline-flex items-center ml-2 px-3 py-1 rounded-full text-sm font-medium ${
+            user.subscriptionStatus === "premium"
+              ? "bg-green-100 text-green-800"
+              : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {user.subscriptionStatus || "free"}
+        </span>
+      </p>
+      {user.subscriptionStatus === "premium" ? (
+        <button
+          onClick={handleManageSubscription}
+          disabled={portalLoading}
+          className="px-6 py-2 bg-yellow-500 text-white font-medium rounded-md hover:bg-yellow-600 disabled:opacity-50"
+        >
+          {portalLoading ? "Loading Portal..." : "Manage Subscription"}
+        </button>
+      ) : (
+        <a
+          href="/pricing"
+          className="inline-block px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700"
+        >
+          Upgrade to Premium
+        </a>
+      )}
+    </div>
+  );
+
+  const DangerZoneTab = (
+    <div className="bg-red-50 p-6 rounded-lg shadow border border-red-200 space-y-6">
+      <h3 className="text-lg font-semibold text-red-700 border-b border-red-200 pb-2">
+        Danger Zone
+      </h3>
+      <div>
+        <h4 className="font-medium text-red-600">Delete Account</h4>
+        <p className="text-sm text-red-500 mt-1">
+          Permanently delete your account and all associated data. This action
+          is irreversible.
+        </p>
+        <div className="mt-4 flex items-center space-x-4">
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            className="px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 disabled:opacity-50"
+          >
+            {deleting ? "Deleting..." : "Delete Account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const TransactionsListTab = (
+    <div className="bg-white p-6 rounded-lg shadow space-y-4">
+      <h3 className="text-lg font-semibold border-b pb-2">
+        Recent Transactions ({overviewConverted.currency})
+      </h3>
+      {transactionsConverted.length === 0 ? (
+        <p className="text-gray-500">No transactions found.</p>
+      ) : (
+        <ul className="divide-y divide-gray-200">
+          {transactionsConverted.slice(0, 10).map(
+            (
+              tx // Show max 10 recent
+            ) => (
+              <li
+                key={tx.id}
+                className="py-3 flex justify-between items-center"
+              >
+                <div className="text-sm font-medium text-gray-900">
+                  {tx.notes || "No description"}
+                </div>
+                <div
+                  className={`text-sm font-semibold ${
+                    Number(tx.amountConverted) < 0
+                      ? "text-red-600"
+                      : "text-green-700"
+                  }`}
+                >
+                  {/* Using toFixed(2) is acceptable here for transaction rows */}
+                  {tx.currencySymbol}
+                  {Math.abs(Number(tx.amountConverted)).toFixed(2)}
+                </div>
+              </li>
+            )
+          )}
+        </ul>
+      )}
+      <p className="text-sm text-gray-500 mt-4">
+        Showing {transactionsConverted.slice(0, 10).length} of{" "}
+        {transactionsConverted.length} total transactions. Amounts are converted
+        to {overviewConverted.currency}.
+      </p>
+    </div>
+  );
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "profile":
+        return ProfileTab;
+      case "password":
+        return PasswordTab;
+      case "subscription":
+        return SubscriptionTab;
+      case "transactions":
+        return TransactionsListTab;
+      case "danger":
+        return DangerZoneTab;
+      default:
+        return ProfileTab;
+    }
+  };
+
   // Render UI
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -450,7 +810,7 @@ export default function ProfilePage() {
             <div className="text-sm font-medium">{user.email}</div>
             <button
               onClick={handleLogout}
-              className="ml-4 px-3 py-2 border rounded text-sm"
+              className="ml-4 px-3 py-2 border rounded text-sm bg-white hover:bg-gray-100"
             >
               Logout
             </button>
@@ -471,10 +831,9 @@ export default function ProfilePage() {
                   {user.displayName || user.name}
                 </div>
                 <div className="text-sm text-gray-500">{user.email}</div>
-
                 <div className="mt-3 w-full">
                   <div className="flex gap-2 justify-center">
-                    <label className="px-3 py-2 bg-gray-100 rounded cursor-pointer text-sm">
+                    <label className="px-3 py-2 bg-gray-100 rounded cursor-pointer text-sm hover:bg-gray-200">
                       Change Photo
                       <input
                         ref={fileInputRef}
@@ -486,13 +845,15 @@ export default function ProfilePage() {
                     </label>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-2 bg-white border rounded text-sm"
+                      className="px-3 py-2 bg-white border rounded text-sm hover:bg-gray-50"
                     >
                       Browse
                     </button>
                   </div>
+                  {uploadingAvatar && (
+                    <p className="text-xs text-blue-500 mt-2">Uploading...</p>
+                  )}
                 </div>
-
                 <div className="w-full mt-4 text-center">
                   <div className="text-xs text-gray-500">Subscription</div>
                   <div className="mt-1">
@@ -510,7 +871,7 @@ export default function ProfilePage() {
                     {user.subscriptionStatus !== "premium" ? (
                       <a
                         href="/pricing"
-                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
                       >
                         Upgrade
                       </a>
@@ -518,9 +879,9 @@ export default function ProfilePage() {
                       <button
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
-                        className="px-3 py-2 bg-white border rounded text-sm"
+                        className="px-3 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:opacity-50"
                       >
-                        {portalLoading ? "Opening..." : "Manage"}
+                        {portalLoading ? "Loading..." : "Manage Subscription"}
                       </button>
                     )}
                   </div>
@@ -528,319 +889,108 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Quick Stats Card */}
-            {/* Quick Stats Card */}
-            <div className="bg-white rounded-lg shadow p-4 mt-6">
-              <div className="text-sm text-gray-500">Quick Overview</div>
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-semibold">
-                    {overview?.totalTransactions ?? 0}
-                  </div>
-                  <div className="text-xs text-gray-500">Transactions</div>
-                </div>
-
-                {/* ✅ Current Balance with Deficit Label */}
-                <div className="text-center">
-                  {overview?.currentBalance < 0 ? (
-                    <div className="text-lg font-semibold text-red-600">
-                      Deficit: $
-                      {Math.abs(Number(overview?.currentBalance ?? 0)).toFixed(
-                        2
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-lg font-semibold">
-                      ${Number(overview?.currentBalance ?? 0).toFixed(2)}
-                    </div>
-                  )}
-                  <div className="text-xs text-gray-500">Current Balance</div>
-                </div>
-              </div>
-
-              {/* optional extra small breakdown */}
-              <div className="mt-3 text-xs text-gray-500">
-                Income: ${Number(overview?.income ?? 0).toFixed(2)} • Expense: $
-                {Number(overview?.expense ?? 0).toFixed(2)}
-              </div>
-            </div>
+            {/* Navigation Tabs */}
+            <nav className="mt-6 bg-white rounded-lg shadow p-2 space-y-1">
+              {[
+                "profile",
+                "password",
+                "transactions",
+                "subscription",
+                "danger",
+              ].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === tab
+                      ? "bg-blue-500 text-white"
+                      : "text-gray-700 hover:bg-gray-100"
+                  } ${tab === "danger" ? "text-red-500 hover:bg-red-50" : ""}`}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1).replace("-", " ")}
+                </button>
+              ))}
+            </nav>
           </aside>
 
-          {/* Main content (tabs + content) */}
+          {/* Main Content */}
           <main className="col-span-12 md:col-span-8 lg:col-span-9">
-            <div className="bg-white rounded-lg shadow p-6">
-              {/* Tabs */}
-              <div className="flex gap-4 border-b mb-6">
-                <TabButton
-                  label="Profile"
-                  active={activeTab === "profile"}
-                  onClick={() => setActiveTab("profile")}
-                />
-                <TabButton
-                  label="Preferences"
-                  active={activeTab === "preferences"}
-                  onClick={() => setActiveTab("preferences")}
-                />
-                <TabButton
-                  label="Notifications"
-                  active={activeTab === "notifications"}
-                  onClick={() => setActiveTab("notifications")}
-                />
-                <TabButton
-                  label="Security"
-                  active={activeTab === "security"}
-                  onClick={() => setActiveTab("security")}
-                />
+            {/* This section has been modified to use toLocaleString() for better currency formatting.
+              This is where the user will see: current balace, total income, total expense 
+              with the new currency symbol and converted value.
+            */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              {/* Total Transactions Card (Not converted) */}
+              <div className="bg-white p-5 rounded-lg shadow">
+                <p className="text-sm font-medium text-gray-500">
+                  Total Transactions
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {overviewConverted.totalTransactions ?? 0}
+                </p>
               </div>
 
-              {/* Tab Content */}
-              {activeTab === "profile" && (
-                <section>
-                  <h2 className="text-xl font-semibold mb-4">Profile</h2>
-                  <form onSubmit={handleSaveProfile} className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Full name
-                      </label>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                        required
-                      />
-                    </div>
+              {/* === START OF FORMATTING CHANGES === */}
+              {(() => {
+                // Helper function for localizing the amount display
+                const formatAmount = (amount) =>
+                  Number(amount ?? 0).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  });
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Display name
-                      </label>
-                      <input
-                        type="text"
-                        value={displayName}
-                        onChange={(e) => setDisplayName(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                      />
-                    </div>
+                const balance = Number(overviewConverted?.currentBalance ?? 0);
+                const income = Number(overviewConverted?.income ?? 0);
+                const expense = Number(overviewConverted?.expense ?? 0);
 
-                    <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="px-4 py-2 bg-black text-white rounded"
+                return (
+                  <>
+                    {/* Current Balance Card */}
+                    <div className="bg-white p-5 rounded-lg shadow">
+                      <p className="text-sm font-medium text-gray-500">
+                        Current Balance ({overviewConverted.currency})
+                      </p>
+                      <div
+                        className={`text-2xl font-bold mt-1 ${
+                          balance < 0 ? "text-red-600" : "text-green-700"
+                        }`}
                       >
-                        {saving ? "Saving..." : "Save profile"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setName(user.name || "");
-                          setDisplayName(user.displayName || "");
-                        }}
-                        className="px-4 py-2 border rounded"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </form>
-                </section>
-              )}
-
-              {activeTab === "preferences" && (
-                <section>
-                  <h2 className="text-xl font-semibold mb-4">Preferences</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Default currency
-                      </label>
-                      <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="PKR">PKR</option>
-                        <option value="GBP">GBP</option>
-                      </select>
+                        {overviewConverted?.currencySymbol ?? "$"}
+                        {formatAmount(Math.abs(balance))}
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Theme
-                      </label>
-                      <select
-                        value={theme}
-                        onChange={(e) => setTheme(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                      >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex gap-3">
-                    <button
-                      onClick={handleSaveProfile}
-                      className="px-4 py-2 bg-black text-white rounded"
-                    >
-                      Save preferences
-                    </button>
-                    <button
-                      onClick={() => {
-                        setCurrency(user.currency || "USD");
-                        setTheme(user.theme || "light");
-                      }}
-                      className="px-4 py-2 border rounded"
-                    >
-                      Reset
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "notifications" && (
-                <section>
-                  <h2 className="text-xl font-semibold mb-4">Notifications</h2>
-                  <div className="space-y-4">
-                    <ToggleRow
-                      label="Monthly summary email"
-                      checked={notifyMonthlySummary}
-                      onChange={() => setNotifyMonthlySummary((s) => !s)}
-                    />
-                    <ToggleRow
-                      label="Budget alerts"
-                      checked={notifyBudgetAlerts}
-                      onChange={() => setNotifyBudgetAlerts((s) => !s)}
-                    />
-                  </div>
-
-                  <div className="mt-4">
-                    <button
-                      onClick={handleSaveProfile}
-                      className="px-4 py-2 bg-black text-white rounded"
-                    >
-                      Save notification settings
-                    </button>
-                  </div>
-                </section>
-              )}
-
-              {activeTab === "security" && (
-                <section>
-                  <h2 className="text-xl font-semibold mb-4">Security</h2>
-                  <form
-                    onSubmit={handleChangePassword}
-                    className="space-y-4 max-w-md"
-                  >
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        Current password
-                      </label>
-                      <input
-                        type="password"
-                        value={oldPassword}
-                        onChange={(e) => setOldPassword(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                        required
-                      />
+                    {/* Income Card */}
+                    <div className="bg-white p-5 rounded-lg shadow">
+                      <p className="text-sm font-medium text-gray-500">
+                        Total Income ({overviewConverted.currency})
+                      </p>
+                      <p className="text-2xl font-bold text-green-600 mt-1">
+                        {overviewConverted?.currencySymbol ?? "$"}
+                        {formatAmount(income)}
+                      </p>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-medium mb-1">
-                        New password
-                      </label>
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full border rounded px-3 py-2"
-                        required
-                      />
+                    {/* Expense Card */}
+                    <div className="bg-white p-5 rounded-lg shadow">
+                      <p className="text-sm font-medium text-gray-500">
+                        Total Expense ({overviewConverted.currency})
+                      </p>
+                      <p className="text-2xl font-bold text-red-600 mt-1">
+                        {overviewConverted?.currencySymbol ?? "$"}
+                        {formatAmount(expense)}
+                      </p>
                     </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        disabled={changingPassword}
-                        className="px-4 py-2 bg-red-600 text-white rounded"
-                      >
-                        {changingPassword ? "Changing..." : "Change password"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOldPassword("");
-                          setNewPassword("");
-                        }}
-                        className="px-4 py-2 border rounded"
-                      >
-                        Clear
-                      </button>
-                    </div>
-                  </form>
-
-                  <hr className="my-6" />
-                  <div className="mt-4">
-                    <h3 className="text-lg font-semibold text-red-600 mb-2">
-                      Danger Zone
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      Once you delete your account, all your data will be
-                      permanently removed. This action cannot be undone.
-                    </p>
-                    <button
-                      onClick={handleDeleteAccount}
-                      disabled={deleting}
-                      className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    >
-                      {deleting ? "Deleting..." : "Delete My Account"}
-                    </button>
-                  </div>
-                </section>
-              )}
+                  </>
+                );
+              })()}
+              {/* === END OF FORMATTING CHANGES === */}
             </div>
+
+            {/* Tab Content */}
+            {renderTabContent()}
           </main>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Small UI subcomponents ---------- */
-
-function TabButton({ label, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-4 py-2 -mb-px ${
-        active ? "border-b-2 border-black font-semibold" : "text-gray-600"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-function ToggleRow({ label, checked, onChange }) {
-  return (
-    <div className="flex items-center justify-between p-3 border rounded">
-      <div>
-        <div className="font-medium">{label}</div>
-      </div>
-      <div>
-        <label className="inline-flex relative items-center cursor-pointer">
-          <input
-            type="checkbox"
-            checked={checked}
-            onChange={onChange}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-gray-200 rounded-full peer-checked:bg-green-500 peer-focus:ring-4 peer-focus:ring-green-300 transition" />
-          <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full peer-checked:translate-x-5 transition" />
-        </label>
       </div>
     </div>
   );

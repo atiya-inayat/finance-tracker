@@ -2,20 +2,15 @@ import Transaction from "../models/Transaction.js";
 import mongoose from "mongoose";
 import { Parser } from "json2csv";
 import Budget from "../models/Budget.js";
+import { getRate } from "../utils/exchangeRate.js";
 
+// ----------------------------
 // Create Transaction
+// ----------------------------
 export const createTransaction = async (req, res, next) => {
   try {
-    const {
-      type,
-      amount,
-      // category,
-      createdAt,
-      notes,
-      recurring,
-      attachments,
-      budgetId, // ✅ add budgetId
-    } = req.body;
+    const { type, amount, createdAt, notes, recurring, attachments, budgetId } =
+      req.body;
 
     // Optional: Check if budgetId exists
     if (budgetId) {
@@ -32,12 +27,11 @@ export const createTransaction = async (req, res, next) => {
       userId: req.user.id,
       type,
       amount,
-      // category,
       createdAt,
       notes,
       recurring,
       attachments,
-      budgetId: budgetId || null, // link budget if provided
+      budgetId: budgetId || null,
     });
 
     res.status(201).json({ success: true, transaction });
@@ -51,18 +45,29 @@ export const createTransaction = async (req, res, next) => {
   }
 };
 
-// Get All Transactions (User-Specific)
+// ----------------------------
+// Get All Transactions (with currency conversion)
+// ----------------------------
 export const getTransactions = async (req, res, next) => {
   try {
-    const transactions = await Transaction.find({ userId: req.user.id })
-      .populate("budgetId", "name category") // 👈 this pulls budget.name and budget.category
+    const userId = req.user.id;
+    const userCurrency = req.user.currency || "USD";
 
-      .sort({
-        createdAt: -1,
-      });
+    const transactions = await Transaction.find({ userId })
+      .populate("budgetId", "name category")
+      .sort({ createdAt: -1 })
+      .lean();
 
-    console.log({ transactions });
-    res.json({ success: true, transactions });
+    const { rate, symbol } = await getRate(userCurrency);
+
+    const converted = transactions.map((t) => ({
+      ...t,
+      amountConverted: +(t.amount * rate).toFixed(2),
+      currency: userCurrency,
+      symbol,
+    }));
+
+    res.json({ success: true, transactions: converted });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -72,7 +77,9 @@ export const getTransactions = async (req, res, next) => {
   }
 };
 
+// ----------------------------
 // Get Single Transaction by ID
+// ----------------------------
 export const getTransactionById = async (req, res, next) => {
   try {
     const transaction = await Transaction.findOne({
@@ -86,7 +93,18 @@ export const getTransactionById = async (req, res, next) => {
         .json({ success: false, message: "Transaction not found" });
     }
 
-    res.json({ success: true, transaction });
+    const userCurrency = req.user.currency || "USD";
+    const { rate, symbol } = await getRate(userCurrency);
+
+    res.json({
+      success: true,
+      transaction: {
+        ...transaction.toObject(),
+        amountConverted: +(transaction.amount * rate).toFixed(2),
+        currency: userCurrency,
+        symbol,
+      },
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -96,7 +114,9 @@ export const getTransactionById = async (req, res, next) => {
   }
 };
 
+// ----------------------------
 // Update Transaction
+// ----------------------------
 export const updateTransaction = async (req, res, next) => {
   try {
     const transaction = await Transaction.findOneAndUpdate(
@@ -121,7 +141,9 @@ export const updateTransaction = async (req, res, next) => {
   }
 };
 
+// ----------------------------
 // Delete Transaction
+// ----------------------------
 export const deleteTransaction = async (req, res, next) => {
   try {
     const transaction = await Transaction.findOneAndDelete({
@@ -145,22 +167,19 @@ export const deleteTransaction = async (req, res, next) => {
   }
 };
 
-// Analytics: Income / Expense Summary
-
-// Analytics: Income / Expense Summary + Expenses by Category
+// ----------------------------
+// Dashboard Data (with currency conversion)
+// ----------------------------
 export const getDashboardData = async (req, res) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user.id);
+    const userCurrency = req.user.currency || "USD";
+    const { rate, symbol } = await getRate(userCurrency);
 
-    // 1️⃣ Summary (income, expense, balance)
+    // 1️⃣ Summary totals
     const result = await Transaction.aggregate([
       { $match: { userId } },
-      {
-        $group: {
-          _id: "$type",
-          total: { $sum: "$amount" },
-        },
-      },
+      { $group: { _id: "$type", total: { $sum: "$amount" } } },
     ]);
 
     let income = 0;
@@ -173,38 +192,15 @@ export const getDashboardData = async (req, res) => {
 
     const balance = income - expense;
 
-    // 2️⃣ Category-wise expense breakdown
-    // const categories = await Transaction.aggregate([
-    //   { $match: { userId, type: "expense" } }, // only expenses
-    //   {
-    //     $group: {
-    //       _id: "$category",
-    //       amount: { $sum: "$amount" },
-    //     },
-    //   },
-    //   {
-    //     $project: {
-    //       category: "$_id",
-    //       amount: 1,
-    //       _id: 0,
-    //     },
-    //   },
-    // ]);
-    // 2️⃣ Category-wise expense breakdown (from budgets)
+    // 2️⃣ Category-wise expenses
     const categories = await Transaction.aggregate([
-      { $match: { userId, type: "expense" } }, // only expenses
-
-      {
-        $group: {
-          _id: "$budgetId", // group by budgetId
-          amount: { $sum: "$amount" },
-        },
-      },
+      { $match: { userId, type: "expense" } },
+      { $group: { _id: "$budgetId", amount: { $sum: "$amount" } } },
       {
         $lookup: {
-          from: "budgets", // Mongo collection name
-          localField: "_id", // transaction.budgetId
-          foreignField: "_id", // budget._id
+          from: "budgets",
+          localField: "_id",
+          foreignField: "_id",
           as: "budget",
         },
       },
@@ -212,56 +208,57 @@ export const getDashboardData = async (req, res) => {
       {
         $project: {
           _id: 0,
-          category: "$budget.category", // 👈 use budget.category
+          budgetId: "$budget._id",
+          category: "$budget.category",
           amount: 1,
         },
       },
       { $sort: { amount: -1 } },
     ]);
 
-    // 3️⃣ Send response
+    // Convert totals + categories
     res.json({
       success: true,
-      dashboard: { income, expense, balance },
-      categories, // 👈 now frontend can use this for charts
+      dashboard: {
+        income: +(income * rate).toFixed(2),
+        expense: +(expense * rate).toFixed(2),
+        balance: +(balance * rate).toFixed(2),
+        totalTransactions: await Transaction.countDocuments({ userId }),
+        currency: userCurrency,
+        symbol,
+      },
+      categories: categories.map((c) => ({
+        ...c,
+        amount: +(c.amount * rate).toFixed(2),
+        currency: userCurrency,
+        symbol,
+      })),
     });
   } catch (error) {
+    console.error("Error generating dashboard data", error);
     res.status(500).json({
       success: false,
       message: "Error generating dashboard data",
       error: error.message,
     });
   }
-
-  // ----------------------------------------------------
-  const totalTransactions = await Transaction.countDocuments({ userId });
-
-  res.json({
-    success: true,
-    dashboard: {
-      income,
-      expense,
-      balance,
-      totalTransactions,
-    },
-    categories,
-  });
 };
 
+// ----------------------------
+// Advanced Analytics (optional)
+// ----------------------------
 export const getAdvancedAnalytics = async (req, res) => {
   try {
-    const { groupBy } = req.query; // e.g., category or month
-
+    const { groupBy } = req.query;
     let groupStage = {};
 
     if (groupBy === "month") {
       groupStage = {
-        _id: { $month: "$date" }, // group by month number (1–12)
+        _id: { $month: "$date" },
         totalAmount: { $sum: "$amount" },
         count: { $sum: 1 },
       };
     } else {
-      // default: group by category
       groupStage = {
         _id: "$category",
         totalAmount: { $sum: "$amount" },
@@ -270,7 +267,6 @@ export const getAdvancedAnalytics = async (req, res) => {
     }
 
     const result = await Transaction.aggregate([{ $group: groupStage }]);
-
     res.json(result);
   } catch (error) {
     console.error("Error grouping transactions:", error);
@@ -278,9 +274,11 @@ export const getAdvancedAnalytics = async (req, res) => {
   }
 };
 
+// ----------------------------
+// Export Transactions (CSV, converted)
+// ----------------------------
 export const exportTransactions = async (req, res) => {
   try {
-    // 1. Fetch all transactions for the logged-in user
     const transactions = await Transaction.find({
       userId: req.user._id,
     }).lean();
@@ -291,11 +289,18 @@ export const exportTransactions = async (req, res) => {
         .json({ message: "No transactions found to export" });
     }
 
-    // 2. Convert JSON → CSV
-    const json2csvParser = new Parser();
-    const csv = json2csvParser.parse(transactions);
+    const userCurrency = req.user.currency || "USD";
+    const { rate, symbol } = await getRate(userCurrency);
 
-    // 3. Send as downloadable file
+    const transactionsConverted = transactions.map((t) => ({
+      ...t,
+      amount: +(t.amount * rate).toFixed(2),
+      currency: userCurrency,
+      symbol,
+    }));
+
+    const csv = new Parser().parse(transactionsConverted);
+
     res.header("Content-Type", "text/csv");
     res.attachment("transactions.csv");
     res.send(csv);

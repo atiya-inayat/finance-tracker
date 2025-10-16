@@ -55,6 +55,12 @@ const Navbar = () => {
         >
           Report
         </Link>
+        <Link
+          href="/profile"
+          className="hover:text-blue-600 transition duration-200"
+        >
+          Profile
+        </Link>
       </div>
     </nav>
   );
