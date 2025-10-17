@@ -955,6 +955,7 @@ export default function ProfilePage() {
                           balance < 0 ? "text-red-600" : "text-green-700"
                         }`}
                       >
+                        {balance < 0 ? " Dificit " : balance}
                         {overviewConverted?.currencySymbol ?? "$"}
                         {formatAmount(Math.abs(balance))}
                       </div>
