@@ -7,6 +7,7 @@ import {
   updateAvatar,
   deleteAccount,
 } from "../controllers/profileController.js";
+import upload from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -20,7 +21,7 @@ router.put("/update", authMiddleware, updateProfile);
 router.put("/password", authMiddleware, updatePassword);
 
 // Update avatar (photo)
-router.put("/avatar", authMiddleware, updateAvatar);
+router.put("/avatar", authMiddleware, upload.single("avatar"), updateAvatar);
 
 // dlt account
 router.delete("/delete", authMiddleware, deleteAccount);

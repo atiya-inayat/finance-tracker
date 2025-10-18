@@ -134,7 +134,6 @@ export default function ProfilePage() {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        console.log("Dashboard data (raw):", r.data);
         // backend returns dashboard in USD (per your requirement)
         if (!mounted) return;
         setOverviewRaw(r.data.dashboard || null);

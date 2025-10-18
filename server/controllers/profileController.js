@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import bcrypt from "bcrypt";
+import cloudinary from "../config/cloudinary.js";
 
 export const getProfile = async (req, res) => {
   try {
@@ -151,147 +152,46 @@ export const deleteAccount = async (req, res) => {
 };
 
 export const updateAvatar = async (req, res) => {
-  // Will implement soon
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No image uploaded" });
+    }
+
+    // Upload to Cloudinary
+    const uploadResponse = await cloudinary.uploader.upload_stream(
+      { folder: "avatars", resource_type: "image" },
+      async (error, result) => {
+        if (error) {
+          console.error("Cloudinary Error:", error);
+          return res
+            .status(500)
+            .json({ success: false, message: "Upload failed" });
+        }
+
+        // Save URL to user
+        const user = await User.findByIdAndUpdate(
+          req.user._id,
+          { avatarUrl: result.secure_url },
+          { new: true, select: "-password" }
+        );
+
+        return res.json({
+          success: true,
+          message: "Avatar updated successfully",
+          user,
+        });
+      }
+    );
+
+    // Pipe the file buffer
+    uploadResponse.end(req.file.buffer);
+  } catch (err) {
+    console.error("Avatar Update Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error during avatar update",
+    });
+  }
 };
-
-//-------------------------------------------------
-
-// controllers/profileController.js
-// import User from "../models/User.js";
-// import bcrypt from "bcrypt";
-
-// // GET /profile/me
-// export const getProfile = async (req, res) => {
-//   try {
-//     // req.user is set by authMiddleware (without password)
-//     const user = await User.findById(req.user.id).select("-password").lean();
-//     if (!user)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-//     res.json({ success: true, user });
-//   } catch (err) {
-//     console.error("getMe error:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error", error: err.message });
-//   }
-// };
-
-// // PUT /profile/update
-// export const updateProfile = async (req, res) => {
-//   try {
-//     const userId = req.user.id;
-//     // Only accept allowed fields
-//     const allowed = [
-//       "name",
-//       "displayName",
-//       "currency",
-//       "theme",
-//       "notifyMonthlySummary",
-//       "notifyBudgetAlerts",
-//     ];
-//     const payload = {};
-//     allowed.forEach((k) => {
-//       if (typeof req.body[k] !== "undefined") payload[k] = req.body[k];
-//     });
-
-//     // Validate currency (optional: only allow supported codes)
-//     if (payload.currency && typeof payload.currency === "string") {
-//       payload.currency = payload.currency.toUpperCase();
-//       // Optionally, you could validate against a list of supported currencies.
-//     }
-
-//     const user = await User.findByIdAndUpdate(userId, payload, { new: true })
-//       .select("-password")
-//       .lean();
-//     if (!user)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-
-//     res.json({ success: true, user });
-//   } catch (err) {
-//     console.error("updateProfile error:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error", error: err.message });
-//   }
-// };
-
-// // PUT /profile/password
-// export const updatePassword = async (req, res) => {
-//   try {
-//     const { oldPassword, newPassword } = req.body;
-//     if (!oldPassword || !newPassword)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Missing passwords" });
-
-//     const user = await User.findById(req.user.id).select("+password");
-//     if (!user)
-//       return res
-//         .status(404)
-//         .json({ success: false, message: "User not found" });
-
-//     const match = await bcrypt.compare(oldPassword, user.password);
-//     if (!match)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "Current password is incorrect" });
-
-//     const salt = await bcrypt.genSalt(10);
-//     user.password = await bcrypt.hash(newPassword, salt);
-//     await user.save();
-
-//     res.json({ success: true, message: "Password changed" });
-//   } catch (err) {
-//     console.error("changePassword error:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error", error: err.message });
-//   }
-// };
-
-// // PUT /profile/avatar (simple placeholder)
-// // You might already have an upload handler; if so keep that.
-// // This version expects file handling middleware (e.g., multer) that sets req.file.
-// export const updateAvatar = async (req, res) => {
-//   try {
-//     // req.file.path or req.file.location (depending on storage) should contain URL
-//     const avatarUrl =
-//       req.file?.location || req.file?.path || req.body?.avatarUrl;
-//     if (!avatarUrl)
-//       return res
-//         .status(400)
-//         .json({ success: false, message: "No avatar provided" });
-
-//     const user = await User.findByIdAndUpdate(
-//       req.user.id,
-//       { avatarUrl },
-//       { new: true }
-//     )
-//       .select("-password")
-//       .lean();
-//     res.json({ success: true, user });
-//   } catch (err) {
-//     console.error("updateAvatar error:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error", error: err.message });
-//   }
-// };
-
-// // DELETE /profile/delete
-// export const deleteAccount = async (req, res) => {
-//   try {
-//     await User.findByIdAndDelete(req.user.id);
-//     // optionally delete related user data (transactions, budgets)
-//     res.json({ success: true, message: "Account deleted" });
-//   } catch (err) {
-//     console.error("deleteProfile error:", err);
-//     res
-//       .status(500)
-//       .json({ success: false, message: "Server error", error: err.message });
-//   }
-// };
