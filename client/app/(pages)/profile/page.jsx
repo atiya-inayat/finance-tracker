@@ -457,16 +457,13 @@ export default function ProfilePage() {
         router.push("/login");
         return;
       }
-      const res = await fetch(
-        `${API_BASE_URL}/stripe/create-checkout-session`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const res = await fetch(`${API_BASE_URL}/stripe/create-portal-session`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
       const data = await res.json();
       if (!res.ok)
         throw new Error(data.message || "Failed to open billing portal");

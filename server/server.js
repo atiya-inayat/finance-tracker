@@ -8,6 +8,8 @@ import stripeRoutes from "./routes/stripeRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import profileRoutes from "./routes/profileRoutes.js";
 import currencyRoute from "./routes/currencyRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
+
 import { handleWebhook } from "./controllers/stripeController.js"; // import webhook controller
 import "./utils/cronJobs.js";
 import cors from "cors";
@@ -47,6 +49,8 @@ app.use("/api/stripe", stripeRoutes);
 app.use("/api/budgets", budgetRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/ai", aiRoutes);
+
 // app.use("/api/currency", currencyRoute);
 
 app.get("/", (req, res) => {
