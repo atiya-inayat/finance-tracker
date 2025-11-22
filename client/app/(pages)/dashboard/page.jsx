@@ -43,6 +43,7 @@ import { useEffect, useState } from "react";
 import { getDashboardData } from "@/app/lib/api";
 import BalanceCard from "@/app/components/dashboard/BalanceCard";
 import Charts from "../../components/dashboard/Charts";
+import FloatingAIChat from "../aiChat/page";
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState({ income: 0, expense: 0, balance: 0 });
@@ -88,6 +89,7 @@ export default function DashboardPage() {
       <div>
         <Charts data={categories} />
       </div>
+      <FloatingAIChat />
     </div>
   );
 }

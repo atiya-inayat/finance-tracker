@@ -3,7 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/app/lib/constant";
 import axios from "axios";
-import { getRate, currencySymbols } from "@/app/lib/exchangeClient"; // adjust path if different
+import { getRate, currencySymbols } from "@/app/lib/exchangeClient";
+import FloatingAIChat from "../aiChat/page";
 
 /**
  * app/profile/page.jsx
@@ -989,6 +990,7 @@ export default function ProfilePage() {
           </main>
         </div>
       </div>
+      <FloatingAIChat />
     </div>
   );
 }

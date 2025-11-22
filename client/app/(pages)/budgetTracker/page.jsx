@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "@/app/lib/axios.js"; // 👈 adjust path if needed
+import api from "@/app/lib/axios.js";
+import FloatingAIChat from "../aiChat/page";
 
 export default function Budgeting() {
   const [budgets, setBudgets] = useState([]);
@@ -243,6 +244,7 @@ export default function Budgeting() {
           );
         })}
       </div>
+      <FloatingAIChat />
     </div>
   );
 }

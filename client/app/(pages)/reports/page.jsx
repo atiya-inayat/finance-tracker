@@ -13,6 +13,7 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import FloatingAIChat from "../aiChat/page";
 
 const monthNames = [
   "Jan",
@@ -165,6 +166,7 @@ export default function ReportsPage() {
           />
         </LineChart>
       </div>
+      <FloatingAIChat />
     </div>
   );
 }
