@@ -491,9 +491,9 @@ export default function ProfilePage() {
 
   if (loadingUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="loader mb-3" />
+          <div className="mb-3 loader" />
           <p>Loading your profile...</p>
         </div>
       </div>
@@ -505,8 +505,8 @@ export default function ProfilePage() {
   // Components for Tabs
   const ProfileTab = (
     <form onSubmit={handleSaveProfile} className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow space-y-4">
-        <h3 className="text-lg font-semibold border-b pb-2">
+      <div className="p-6 space-y-4 bg-white rounded-lg shadow">
+        <h3 className="pb-2 text-lg font-semibold border-b">
           User Information
         </h3>
         <div>
@@ -521,7 +521,7 @@ export default function ProfilePage() {
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           />
         </div>
         <div>
@@ -536,13 +536,13 @@ export default function ProfilePage() {
             id="displayName"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           />
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-lg shadow space-y-4">
-        <h3 className="text-lg font-semibold border-b pb-2">Preferences</h3>
+      <div className="p-6 space-y-4 bg-white rounded-lg shadow">
+        <h3 className="pb-2 text-lg font-semibold border-b">Preferences</h3>
         <div>
           <label
             htmlFor="currency"
@@ -554,7 +554,7 @@ export default function ProfilePage() {
             id="currency"
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           >
             {Object.keys(currencySymbols).map((code) => (
               <option key={code} value={code}>
@@ -575,7 +575,7 @@ export default function ProfilePage() {
             id="theme"
             value={theme}
             onChange={(e) => setTheme(e.target.value)}
-            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           >
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -587,7 +587,7 @@ export default function ProfilePage() {
             type="checkbox"
             checked={notifyMonthlySummary}
             onChange={(e) => setNotifyMonthlySummary(e.target.checked)}
-            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
+            className="w-4 h-4 mt-1 text-blue-600 border-gray-300 rounded"
           />
           <label
             htmlFor="notifyMonthlySummary"
@@ -602,7 +602,7 @@ export default function ProfilePage() {
             type="checkbox"
             checked={notifyBudgetAlerts}
             onChange={(e) => setNotifyBudgetAlerts(e.target.checked)}
-            className="mt-1 h-4 w-4 text-blue-600 border-gray-300 rounded"
+            className="w-4 h-4 mt-1 text-blue-600 border-gray-300 rounded"
           />
           <label
             htmlFor="notifyBudgetAlerts"
@@ -617,7 +617,7 @@ export default function ProfilePage() {
         <button
           type="submit"
           disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-6 py-2 font-medium text-white bg-gray-900 rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save Profile"}
         </button>
@@ -628,9 +628,9 @@ export default function ProfilePage() {
   const PasswordTab = (
     <form
       onSubmit={handleChangePassword}
-      className="bg-white p-6 rounded-lg shadow space-y-6"
+      className="p-6 space-y-6 bg-white rounded-lg shadow"
     >
-      <h3 className="text-lg font-semibold border-b pb-2">Change Password</h3>
+      <h3 className="pb-2 text-lg font-semibold border-b">Change Password</h3>
       <div>
         <label
           htmlFor="oldPassword"
@@ -643,7 +643,7 @@ export default function ProfilePage() {
           id="oldPassword"
           value={oldPassword}
           onChange={(e) => setOldPassword(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           required
         />
       </div>
@@ -659,7 +659,7 @@ export default function ProfilePage() {
           id="newPassword"
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+          className="block w-full p-2 mt-1 border border-gray-300 rounded-md shadow-sm"
           required
         />
       </div>
@@ -667,7 +667,7 @@ export default function ProfilePage() {
         <button
           type="submit"
           disabled={changingPassword}
-          className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 disabled:opacity-50"
+          className="px-6 py-2 font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
         >
           {changingPassword ? "Changing..." : "Change Password"}
         </button>
@@ -676,8 +676,8 @@ export default function ProfilePage() {
   );
 
   const SubscriptionTab = (
-    <div className="bg-white p-6 rounded-lg shadow space-y-6">
-      <h3 className="text-lg font-semibold border-b pb-2">
+    <div className="p-6 space-y-6 bg-white rounded-lg shadow">
+      <h3 className="pb-2 text-lg font-semibold border-b">
         Subscription & Billing
       </h3>
       <p className="text-gray-700">
@@ -696,14 +696,14 @@ export default function ProfilePage() {
         <button
           onClick={handleManageSubscription}
           disabled={portalLoading}
-          className="px-6 py-2 bg-yellow-500 text-white font-medium rounded-md hover:bg-yellow-600 disabled:opacity-50"
+          className="px-6 py-2 font-medium text-white bg-green-500 rounded-md hover:bg-yellow-600 disabled:opacity-50"
         >
           {portalLoading ? "Loading Portal..." : "Manage Subscription"}
         </button>
       ) : (
         <a
           href="/pricing"
-          className="inline-block px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700"
+          className="inline-block px-6 py-2 font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
         >
           Upgrade to Premium
         </a>
@@ -712,21 +712,21 @@ export default function ProfilePage() {
   );
 
   const DangerZoneTab = (
-    <div className="bg-red-50 p-6 rounded-lg shadow border border-red-200 space-y-6">
-      <h3 className="text-lg font-semibold text-red-700 border-b border-red-200 pb-2">
+    <div className="p-6 space-y-6 border border-red-200 rounded-lg shadow bg-red-50">
+      <h3 className="pb-2 text-lg font-semibold text-red-700 border-b border-red-200">
         Danger Zone
       </h3>
       <div>
         <h4 className="font-medium text-red-600">Delete Account</h4>
-        <p className="text-sm text-red-500 mt-1">
+        <p className="mt-1 text-sm text-red-500">
           Permanently delete your account and all associated data. This action
           is irreversible.
         </p>
-        <div className="mt-4 flex items-center space-x-4">
+        <div className="flex items-center mt-4 space-x-4">
           <button
             onClick={handleDeleteAccount}
             disabled={deleting}
-            className="px-6 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 disabled:opacity-50"
+            className="px-6 py-2 font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
           >
             {deleting ? "Deleting..." : "Delete Account"}
           </button>
@@ -736,8 +736,8 @@ export default function ProfilePage() {
   );
 
   const TransactionsListTab = (
-    <div className="bg-white p-6 rounded-lg shadow space-y-4">
-      <h3 className="text-lg font-semibold border-b pb-2">
+    <div className="p-6 space-y-4 bg-white rounded-lg shadow">
+      <h3 className="pb-2 text-lg font-semibold border-b">
         Recent Transactions ({overviewConverted.currency})
       </h3>
       {transactionsConverted.length === 0 ? (
@@ -750,7 +750,7 @@ export default function ProfilePage() {
             ) => (
               <li
                 key={tx.id}
-                className="py-3 flex justify-between items-center"
+                className="flex items-center justify-between py-3"
               >
                 <div className="text-sm font-medium text-gray-900">
                   {tx.notes || "No description"}
@@ -771,7 +771,7 @@ export default function ProfilePage() {
           )}
         </ul>
       )}
-      <p className="text-sm text-gray-500 mt-4">
+      <p className="mt-4 text-sm text-gray-500">
         Showing {transactionsConverted.slice(0, 10).length} of{" "}
         {transactionsConverted.length} total transactions. Amounts are converted
         to {overviewConverted.currency}.
@@ -798,16 +798,16 @@ export default function ProfilePage() {
 
   // Render UI
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <header className="mb-8 flex items-center justify-between">
+    <div className="min-h-screen py-8 bg-gray-50">
+      <div className="max-w-6xl px-4 mx-auto">
+        <header className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Account Settings</h1>
           <div className="flex items-center gap-3">
             <div className="text-sm text-gray-600">Signed in as</div>
             <div className="text-sm font-medium">{user.email}</div>
             <button
               onClick={handleLogout}
-              className="ml-4 px-3 py-2 border rounded text-sm bg-white hover:bg-gray-100"
+              className="px-3 py-2 ml-4 text-sm bg-gray-900 border rounded-2xl text-amber-50 hover:bg-gray-100"
             >
               Logout
             </button>
@@ -817,20 +817,20 @@ export default function ProfilePage() {
         <div className="grid grid-cols-12 gap-6">
           {/* Sidebar */}
           <aside className="col-span-12 md:col-span-4 lg:col-span-3">
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex flex-col items-center text-center gap-3">
+            <div className="p-4 bg-white rounded-lg shadow">
+              <div className="flex flex-col items-center gap-3 text-center">
                 <img
                   src={avatarPreview || "/default-avatar.png"}
                   alt="avatar"
-                  className="w-28 h-28 rounded-full object-cover border"
+                  className="object-cover border rounded-full w-28 h-28"
                 />
                 <div className="text-lg font-semibold">
                   {user.displayName || user.name}
                 </div>
                 <div className="text-sm text-gray-500">{user.email}</div>
-                <div className="mt-3 w-full">
-                  <div className="flex gap-2 justify-center">
-                    <label className="px-3 py-2 bg-gray-100 rounded cursor-pointer text-sm hover:bg-gray-200">
+                <div className="w-full mt-3">
+                  <div className="flex justify-center gap-2">
+                    <label className="px-3 py-2 text-sm bg-gray-100 rounded cursor-pointer hover:bg-gray-200">
                       Change Photo
                       <input
                         ref={fileInputRef}
@@ -842,13 +842,13 @@ export default function ProfilePage() {
                     </label>
                     <button
                       onClick={() => fileInputRef.current?.click()}
-                      className="px-3 py-2 bg-white border rounded text-sm hover:bg-gray-50"
+                      className="px-3 py-2 text-sm bg-white border rounded hover:bg-gray-50"
                     >
                       Browse
                     </button>
                   </div>
                   {uploadingAvatar && (
-                    <p className="text-xs text-blue-500 mt-2">Uploading...</p>
+                    <p className="mt-2 text-xs text-blue-500">Uploading...</p>
                   )}
                 </div>
                 <div className="w-full mt-4 text-center">
@@ -868,7 +868,7 @@ export default function ProfilePage() {
                     {user.subscriptionStatus !== "premium" ? (
                       <a
                         href="/pricing"
-                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                        className="px-3 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700"
                       >
                         Upgrade
                       </a>
@@ -876,7 +876,7 @@ export default function ProfilePage() {
                       <button
                         onClick={handleManageSubscription}
                         disabled={portalLoading}
-                        className="px-3 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:opacity-50"
+                        className="px-3 py-2 text-sm text-white bg-yellow-500 rounded hover:bg-yellow-600 disabled:opacity-50"
                       >
                         {portalLoading ? "Loading..." : "Manage Subscription"}
                       </button>
@@ -887,7 +887,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Navigation Tabs */}
-            <nav className="mt-6 bg-white rounded-lg shadow p-2 space-y-1">
+            <nav className="p-2 mt-6 space-y-1 bg-white rounded-lg shadow">
               {[
                 "profile",
                 "password",
@@ -913,16 +913,16 @@ export default function ProfilePage() {
           {/* Main Content */}
           <main className="col-span-12 md:col-span-8 lg:col-span-9">
             {/* This section has been modified to use toLocaleString() for better currency formatting.
-              This is where the user will see: current balace, total income, total expense 
+              This is where the user will see: current balace, total income, total expense
               with the new currency symbol and converted value.
             */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-4">
               {/* Total Transactions Card (Not converted) */}
-              <div className="bg-white p-5 rounded-lg shadow">
+              <div className="p-5 bg-white rounded-lg shadow">
                 <p className="text-sm font-medium text-gray-500">
                   Total Transactions
                 </p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
+                <p className="mt-1 text-2xl font-bold text-gray-900">
                   {overviewConverted.totalTransactions ?? 0}
                 </p>
               </div>
@@ -943,7 +943,7 @@ export default function ProfilePage() {
                 return (
                   <>
                     {/* Current Balance Card */}
-                    <div className="bg-white p-5 rounded-lg shadow">
+                    <div className="p-5 bg-white rounded-lg shadow">
                       <p className="text-sm font-medium text-gray-500">
                         Current Balance ({overviewConverted.currency})
                       </p>
@@ -959,22 +959,22 @@ export default function ProfilePage() {
                     </div>
 
                     {/* Income Card */}
-                    <div className="bg-white p-5 rounded-lg shadow">
+                    <div className="p-5 bg-white rounded-lg shadow">
                       <p className="text-sm font-medium text-gray-500">
                         Total Income ({overviewConverted.currency})
                       </p>
-                      <p className="text-2xl font-bold text-green-600 mt-1">
+                      <p className="mt-1 text-2xl font-bold text-green-600">
                         {overviewConverted?.currencySymbol ?? "$"}
                         {formatAmount(income)}
                       </p>
                     </div>
 
                     {/* Expense Card */}
-                    <div className="bg-white p-5 rounded-lg shadow">
+                    <div className="p-5 bg-white rounded-lg shadow">
                       <p className="text-sm font-medium text-gray-500">
                         Total Expense ({overviewConverted.currency})
                       </p>
-                      <p className="text-2xl font-bold text-red-600 mt-1">
+                      <p className="mt-1 text-2xl font-bold text-red-600">
                         {overviewConverted?.currencySymbol ?? "$"}
                         {formatAmount(expense)}
                       </p>

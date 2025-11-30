@@ -10,7 +10,12 @@
 //   const [showForm, setShowForm] = useState(false);
 //   const [editTx, setEditTx] = useState(null);
 
-//   // fetch all transactions
+//   // Filters
+//   const [searchTerm, setSearchTerm] = useState("");
+//   const [filterCategory, setFilterCategory] = useState("");
+//   const [filterType, setFilterType] = useState("");
+//   const [filterDate, setFilterDate] = useState("");
+
 //   const fetchTransactions = async () => {
 //     try {
 //       const data = await getTransactions();
@@ -28,7 +33,6 @@
 //     fetchTransactions();
 //   }, []);
 
-//   // handle delete
 //   const handleDelete = async (id) => {
 //     try {
 //       await deleteTransaction(id);
@@ -38,10 +42,42 @@
 //     }
 //   };
 
-//   if (loading) return <p className="text-black">Loading transactions...</p>;
+//   const filteredTransactions = transactions.filter((tx) => {
+//     const matchesSearch =
+//       tx.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+//       tx.budgetId?.category?.toLowerCase().includes(searchTerm.toLowerCase());
+
+//     const matchesCategory = filterCategory
+//       ? tx.budgetId?.category === filterCategory
+//       : true;
+//     const matchesType = filterType ? tx.type === filterType : true;
+
+//     const matchesDate = filterDate
+//       ? new Date(tx.createdAt).toLocaleDateString() ===
+//         new Date(filterDate).toLocaleDateString()
+//       : true;
+
+//     return matchesSearch && matchesCategory && matchesType && matchesDate;
+//   });
+
+//   const categories = [
+//     ...new Set(transactions.map((tx) => tx.budgetId?.category).filter(Boolean)),
+//   ];
+
+//   const clearFilters = () => {
+//     setSearchTerm("");
+//     setFilterCategory("");
+//     setFilterType("");
+//     setFilterDate("");
+//   };
+
+//   if (loading)
+//     return (
+//       <p className="mt-10 text-center text-gray-500">Loading transactions...</p>
+//     );
 
 //   return (
-//     <div className="p-6 bg-gray-50 min-h-screen text-black">
+//     <div className="min-h-screen p-6 text-gray-800 bg-gray-100">
 //       {showForm ? (
 //         <TransactionForm
 //           editData={editTx}
@@ -56,92 +92,135 @@
 //           }}
 //         />
 //       ) : (
-//         <div className="bg-white shadow-lg rounded-xl p-6">
-//           <div className="flex justify-between items-center mb-6">
-//             <h2 className="text-2xl font-bold">Transactions</h2>
+//         <div className="p-6 bg-white border border-gray-200 shadow-sm rounded-2xl">
+//           {/* Header */}
+//           <div className="flex items-center justify-between mb-8">
+//             <h2 className="text-xl font-semibold text-gray-800">
+//               Transactions
+//             </h2>
+
 //             <button
 //               onClick={() => setShowForm(true)}
-//               className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition"
+//               className="px-4 py-2 text-white transition bg-gray-900 rounded-lg hover:bg-gray-800"
 //             >
-//               + Create Transaction
+//               + Add New
 //             </button>
 //           </div>
 
+//           {/* Search */}
+//           <div className="mb-4">
+//             <input
+//               type="text"
+//               placeholder="Search transactions..."
+//               value={searchTerm}
+//               onChange={(e) => setSearchTerm(e.target.value)}
+//               className="w-full p-3 text-gray-700 transition border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
+//             />
+//           </div>
+
+//           {/* Filters */}
+//           <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-4">
+//             <select
+//               value={filterCategory}
+//               onChange={(e) => setFilterCategory(e.target.value)}
+//               className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
+//             >
+//               <option value="">All Categories</option>
+//               {categories.map((cat) => (
+//                 <option key={cat} value={cat}>
+//                   {cat}
+//                 </option>
+//               ))}
+//             </select>
+
+//             <select
+//               value={filterType}
+//               onChange={(e) => setFilterType(e.target.value)}
+//               className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
+//             >
+//               <option value="">All Types</option>
+//               <option value="income">Income</option>
+//               <option value="expense">Expense</option>
+//             </select>
+
+//             <input
+//               type="date"
+//               value={filterDate}
+//               onChange={(e) => setFilterDate(e.target.value)}
+//               className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
+//             />
+
+//             <button
+//               onClick={clearFilters}
+//               className="px-4 py-3 text-gray-700 transition bg-gray-200 rounded-lg hover:bg-gray-300"
+//             >
+//               Clear Filters
+//             </button>
+//           </div>
+
+//           {/* Table */}
 //           <div className="overflow-x-auto">
-//             <table className="w-full border-collapse rounded-lg overflow-hidden shadow">
-//               <thead className="bg-blue-100 text-left">
+//             <table className="w-full overflow-hidden border-collapse rounded-lg">
+//               <thead className="text-sm font-medium text-gray-600 border-b bg-gray-50">
 //                 <tr>
-//                   <th className="p-3">Category</th>
-//                   <th className="p-3">Type</th>
-//                   <th className="p-3">Notes</th>
-//                   <th className="p-3">Created At</th>
-//                   <th className="p-3">Amount</th>
-//                   <th className="p-3 text-center">Edit</th>
-//                   <th className="p-3 text-center">Delete</th>
+//                   <th className="p-4 text-left">Category</th>
+//                   <th className="p-4 text-left">Type</th>
+//                   <th className="p-4 text-left">Notes</th>
+//                   <th className="p-4 text-left">Date</th>
+//                   <th className="p-4 text-left">Amount</th>
+//                   <th className="p-4 text-center">Actions</th>
 //                 </tr>
 //               </thead>
+
 //               <tbody>
-//                 {transactions.length === 0 ? (
+//                 {filteredTransactions.length === 0 ? (
 //                   <tr>
-//                     <td colSpan="7" className="text-center p-4 text-gray-500">
+//                     <td colSpan="6" className="p-6 text-center text-gray-400">
 //                       No transactions found
 //                     </td>
 //                   </tr>
 //                 ) : (
-//                   transactions.map((tx, index) => (
+//                   filteredTransactions.map((tx, index) => (
 //                     <tr
 //                       key={tx._id}
-//                       className={`${
+//                       className={`border-b ${
 //                         index % 2 === 0 ? "bg-white" : "bg-gray-50"
 //                       } hover:bg-gray-100 transition`}
 //                     >
-//                       {/* hello there */}
-//                       <td className="p-3">{tx.budgetId?.category || "-"}</td>
+//                       <td className="p-4 text-gray-700">
+//                         {tx.budgetId?.category || "-"}
+//                       </td>
 
-//                       {/* ✅ Type with color */}
-//                       <td
-//                         className={`p-3 font-semibold capitalize ${
-//                           tx.type === "income"
-//                             ? "text-green-600"
-//                             : "text-red-600"
-//                         }`}
-//                       >
+//                       <td className="p-4 text-gray-600 capitalize">
 //                         {tx.type}
 //                       </td>
 
-//                       <td className="p-3">{tx.notes || "-"}</td>
-//                       <td className="p-3">
+//                       <td className="p-4 text-gray-700">{tx.notes || "-"}</td>
+
+//                       <td className="p-4 text-gray-600">
 //                         {tx.createdAt
 //                           ? new Date(tx.createdAt).toLocaleDateString()
 //                           : "-"}
 //                       </td>
 
-//                       {/* ✅ Amount with color */}
-//                       <td
-//                         className={`p-3 font-semibold ${
-//                           tx.type === "income"
-//                             ? "text-green-600"
-//                             : "text-red-600"
-//                         }`}
-//                       >
-//                         {tx.type === "income" ? "+" : "-"}${tx.amount}
+//                       <td className="p-4 font-medium text-gray-800">
+//                         ${tx.amount}
 //                       </td>
 
-//                       <td className="p-3 text-center">
+//                       <td className="flex justify-center gap-2 p-4">
 //                         <button
 //                           onClick={() => {
 //                             setEditTx(tx);
 //                             setShowForm(true);
 //                           }}
-//                           className="bg-yellow-400 text-white px-3 py-1 rounded-lg hover:bg-yellow-500 transition shadow"
+//                           className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
 //                         >
 //                           Edit
 //                         </button>
-//                       </td>
-//                       <td className="p-3 text-center">
+
 //                         <button
 //                           onClick={() => handleDelete(tx._id)}
-//                           className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition shadow"
+//                           className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
 //                         >
 //                           Delete
 //                         </button>
@@ -159,7 +238,6 @@
 // };
 
 // export default TransactionManager;
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -172,13 +250,12 @@ const TransactionManager = () => {
   const [showForm, setShowForm] = useState(false);
   const [editTx, setEditTx] = useState(null);
 
-  // filters & search
+  // Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterDate, setFilterDate] = useState("");
 
-  // fetch all transactions
   const fetchTransactions = async () => {
     try {
       const data = await getTransactions();
@@ -196,7 +273,6 @@ const TransactionManager = () => {
     fetchTransactions();
   }, []);
 
-  // handle delete
   const handleDelete = async (id) => {
     try {
       await deleteTransaction(id);
@@ -206,7 +282,6 @@ const TransactionManager = () => {
     }
   };
 
-  // ✅ Apply filters + search
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch =
       tx.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -215,7 +290,6 @@ const TransactionManager = () => {
     const matchesCategory = filterCategory
       ? tx.budgetId?.category === filterCategory
       : true;
-
     const matchesType = filterType ? tx.type === filterType : true;
 
     const matchesDate = filterDate
@@ -226,12 +300,10 @@ const TransactionManager = () => {
     return matchesSearch && matchesCategory && matchesType && matchesDate;
   });
 
-  // collect unique categories for dropdown
   const categories = [
     ...new Set(transactions.map((tx) => tx.budgetId?.category).filter(Boolean)),
   ];
 
-  // ✅ Clear all filters
   const clearFilters = () => {
     setSearchTerm("");
     setFilterCategory("");
@@ -239,10 +311,13 @@ const TransactionManager = () => {
     setFilterDate("");
   };
 
-  if (loading) return <p className="text-black">Loading transactions...</p>;
+  if (loading)
+    return (
+      <p className="mt-10 text-center text-gray-500">Loading transactions...</p>
+    );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen text-black">
+    <div className="min-h-screen p-4 text-gray-800 bg-gray-100 sm:p-6">
       {showForm ? (
         <TransactionForm
           editData={editTx}
@@ -257,36 +332,36 @@ const TransactionManager = () => {
           }}
         />
       ) : (
-        <div className="bg-white shadow-lg rounded-xl p-6">
+        <div className="p-4 bg-white border border-gray-200 shadow-sm sm:p-6 rounded-2xl">
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold">Transactions</h2>
+          <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between sm:mb-8">
+            <h2 className="text-xl font-semibold sm:text-2xl">Transactions</h2>
+
             <button
               onClick={() => setShowForm(true)}
-              className="bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition"
+              className="w-full px-4 py-2 text-white transition bg-gray-900 rounded-lg hover:bg-gray-800 sm:w-auto"
             >
-              + Create Transaction
+              + Add New
             </button>
           </div>
 
-          {/* ✅ Search Section */}
+          {/* Search */}
           <div className="mb-4">
             <input
               type="text"
-              placeholder="Search by notes or category..."
+              placeholder="Search transactions..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="p-2 border rounded-lg w-full"
+              className="w-full p-3 text-gray-700 transition border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
             />
           </div>
 
-          {/* ✅ Filter Section */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {/* Category Filter */}
+          {/* Filters */}
+          <div className="grid grid-cols-1 gap-3 mb-6 sm:grid-cols-2 md:grid-cols-4">
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="p-2 border rounded-lg w-full"
+              className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
             >
               <option value="">All Categories</option>
               {categories.map((cat) => (
@@ -296,52 +371,49 @@ const TransactionManager = () => {
               ))}
             </select>
 
-            {/* Type Filter */}
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="p-2 border rounded-lg w-full"
+              className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
             >
               <option value="">All Types</option>
               <option value="income">Income</option>
               <option value="expense">Expense</option>
             </select>
 
-            {/* Date Filter */}
             <input
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="p-2 border rounded-lg w-full"
+              className="w-full p-3 text-gray-700 border border-gray-300 rounded-lg outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50"
             />
 
-            {/* Clear Filters Button */}
             <button
               onClick={clearFilters}
-              className="bg-gray-300 text-black px-4 py-2 rounded-lg shadow hover:bg-gray-400 transition w-full"
+              className="px-4 py-3 text-gray-700 transition bg-gray-200 rounded-lg hover:bg-gray-300"
             >
               Clear Filters
             </button>
           </div>
 
-          {/* ✅ Transaction Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse rounded-lg overflow-hidden shadow">
-              <thead className="bg-blue-100 text-left">
+          {/* Table */}
+          <div className="overflow-x-auto rounded-lg">
+            <table className="w-full min-w-[600px] border-collapse">
+              <thead className="text-sm font-medium text-gray-600 border-b bg-gray-50">
                 <tr>
-                  <th className="p-3">Category</th>
-                  <th className="p-3">Type</th>
-                  <th className="p-3">Notes</th>
-                  <th className="p-3">Created At</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3 text-center">Edit</th>
-                  <th className="p-3 text-center">Delete</th>
+                  <th className="p-3 text-left">Category</th>
+                  <th className="p-3 text-left">Type</th>
+                  <th className="p-3 text-left">Notes</th>
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Amount</th>
+                  <th className="p-3 text-center">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center p-4 text-gray-500">
+                    <td colSpan="6" className="p-6 text-center text-gray-400">
                       No transactions found
                     </td>
                   </tr>
@@ -349,13 +421,13 @@ const TransactionManager = () => {
                   filteredTransactions.map((tx, index) => (
                     <tr
                       key={tx._id}
-                      className={`${
+                      className={`border-b ${
                         index % 2 === 0 ? "bg-white" : "bg-gray-50"
                       } hover:bg-gray-100 transition`}
                     >
                       <td className="p-3">{tx.budgetId?.category || "-"}</td>
                       <td
-                        className={`p-3 font-semibold capitalize ${
+                        className={`p-3 capitalize ${
                           tx.type === "income"
                             ? "text-green-600"
                             : "text-red-600"
@@ -370,7 +442,7 @@ const TransactionManager = () => {
                           : "-"}
                       </td>
                       <td
-                        className={`p-3 font-semibold ${
+                        className={`p-3 font-medium ${
                           tx.type === "income"
                             ? "text-green-600"
                             : "text-red-600"
@@ -378,21 +450,19 @@ const TransactionManager = () => {
                       >
                         {tx.type === "income" ? "+" : "-"}${tx.amount}
                       </td>
-                      <td className="p-3 text-center">
+                      <td className="flex flex-wrap justify-center gap-2 p-3">
                         <button
                           onClick={() => {
                             setEditTx(tx);
                             setShowForm(true);
                           }}
-                          className="bg-yellow-400 text-white px-3 py-1 rounded-lg hover:bg-yellow-500 transition shadow"
+                          className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
                         >
                           Edit
                         </button>
-                      </td>
-                      <td className="p-3 text-center">
                         <button
                           onClick={() => handleDelete(tx._id)}
-                          className="bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 transition shadow"
+                          className="px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
                         >
                           Delete
                         </button>
